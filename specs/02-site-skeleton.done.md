@@ -14,10 +14,7 @@ A static site that runs locally and on GitHub Pages with no build step.
 
 ## Confirmed decisions
 - Plain HTML/JS + SVG, no build step.
-- Hosted on GitHub Pages.
-
-## Open questions
-- GitHub repo name and owner (determines the Pages URL).
+- Hosted on GitHub Pages: repo `Embodied-Space/letterpress-ornamentation`, served at https://embodied-space.github.io/letterpress-ornamentation/
 
 ## Acceptance criteria
 - The page loads from a local static server (ES modules don't work over `file://`) and from the Pages URL.

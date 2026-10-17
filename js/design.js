@@ -93,6 +93,38 @@ export class Design {
     });
   }
 
+  // Replaces the whole design with saved pieces ({ type, x, y, rotation }), without the overlap and
+  // inventory checks: a saved or imported design may break them, and is then shown and flagged
+  // (see problems()) rather than refused. Pieces of unknown types can't be drawn; they're skipped
+  // and returned.
+  load(pieces) {
+    const skipped = pieces.filter((p) => !this.types.has(p.type));
+    this.pieces = pieces
+      .filter((p) => this.types.has(p.type))
+      .map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
+    this.changed();
+    return skipped;
+  }
+
+  // Rule breaks that can only come from load(): piece types placed more than `count` times,
+  // and pieces that overlap another.
+  problems() {
+    const overLimit = new Set([...this.types.values()]
+      .filter((t) => this.usedCount(t.id) > t.count)
+      .map((t) => t.id));
+    const overlapping = new Set();
+    const rects = this.pieces.map((p) => this.rectOf(p));
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        if (rectsOverlap(rects[i], rects[j])) {
+          overlapping.add(this.pieces[i].uid);
+          overlapping.add(this.pieces[j].uid);
+        }
+      }
+    }
+    return { overLimit, overlapping };
+  }
+
   remove(uid) {
     if (!this.get(uid)) return false;
     this.pieces = this.pieces.filter((p) => p.uid !== uid);

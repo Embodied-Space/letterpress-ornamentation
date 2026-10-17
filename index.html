@@ -11,7 +11,31 @@
   <header class="app-header">
     <h1>Letterpress Ornaments</h1>
     <p id="status" class="status">Loading pieces…</p>
+    <div class="header-actions">
+      <span id="design-name" class="design-name" title="Current design">Untitled</span>
+      <button type="button" id="btn-clear" title="Remove all pieces and start a new design">Clear</button>
+      <button type="button" id="btn-designs">Designs…</button>
+      <button type="button" id="btn-export" title="Download this design as a .json file">Export</button>
+      <button type="button" id="btn-import" title="Load a design from a .json file">Import</button>
+      <input type="file" id="import-file" accept=".json,application/json" hidden>
+    </div>
   </header>
+
+  <dialog id="designs-dialog" class="dialog" aria-labelledby="designs-heading">
+    <form method="dialog" class="dialog-head">
+      <h2 id="designs-heading">Designs</h2>
+      <button value="close" aria-label="Close">×</button>
+    </form>
+    <form id="save-form" class="save-form">
+      <label for="save-name">Save the current design as</label>
+      <div class="save-row">
+        <input id="save-name" required maxlength="80" autocomplete="off">
+        <button type="submit">Save</button>
+      </div>
+    </form>
+    <ul id="saved-list" class="saved-list"></ul>
+    <p id="saved-empty" class="muted">No saved designs yet.</p>
+  </dialog>
 
   <pre id="error" class="error" role="alert" hidden></pre>
 

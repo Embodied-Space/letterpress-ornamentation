@@ -164,12 +164,14 @@ export class Canvas {
 
   render() {
     const lifted = this.drag?.kind === 'move' && this.drag.moved ? this.drag.uid : null;
+    const { overlapping } = this.design.problems(); // only possible after loading a saved design
     this.layerPieces.replaceChildren(...this.design.pieces.map((p) => {
       const type = this.design.types.get(p.type);
       const g = pieceGraphic(type);
       g.classList.add('placed');
       g.classList.toggle('selected', p.uid === this.selectedUid);
       g.classList.toggle('lifted', p.uid === lifted);
+      g.classList.toggle('overlapping', overlapping.has(p.uid));
       g.dataset.uid = p.uid;
       g.setAttribute('transform', placementTransform(type, p.x, p.y, p.rotation));
       return g;
@@ -368,7 +370,7 @@ export class Canvas {
   }
 
   onKeyDown(e) {
-    if (e.target.closest?.('input, textarea, select, [contenteditable]')) return;
+    if (e.target.closest?.('input, textarea, select, [contenteditable], dialog')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'r' || e.key === 'R') {
       this.rotateSelected();

@@ -17,7 +17,7 @@ Make sure every design can be built with the pieces you actually own.
 - Pressing a used-up palette item shows a short notice instead of starting a drag.
 
 ## Open questions
-- Loading a saved design that uses more pieces than you now own (e.g. after counts change): load it with the extra pieces flagged, or refuse to load? (Decide in 06.)
+- None. (Loading a saved design that uses more pieces than you own: decided in 06, it loads with the piece type flagged red.)
 
 ## Acceptance criteria
 - You can't get more than `count` placed pieces of any type through dragging.

@@ -17,11 +17,9 @@ Split out of 07 (connectors) and built ahead of the numbered order at the user's
 
 ## Confirmed decisions
 - Snapping is a mode you can turn on and off.
+- The snap setting is not saved (not part of the design data).
 - The snap distance is in screen pixels, so it feels the same at every zoom level.
 - Works with placeholder connectors now; snaps will be right once real connector offsets are in `pieces.json`.
-
-## Open questions
-- Should the snap setting be remembered between sessions (with 06)?
 
 ## Acceptance criteria
 - With snapping on, a straight rule dropped a few points from the end of another butts against it with the lines aligned.

@@ -4,8 +4,13 @@ import { Design } from './design.js';
 import { Canvas } from './canvas.js';
 import { computeGaps } from './gaps.js';
 import { renderInfo } from './info.js';
+import {
+  serializeDesign, loadCurrent, saveCurrent, DEFAULT_NAME,
+} from './storage.js';
+import { setupDesignsUI } from './designs-ui.js';
 
 const NOTICE_MS = 2500;
+const LONG_NOTICE_MS = 7000;
 
 function showError(message) {
   const el = document.getElementById('error');
@@ -14,12 +19,12 @@ function showError(message) {
 }
 
 let noticeTimer;
-function showNotice(message) {
+function showNotice(message, ms = NOTICE_MS) {
   const el = document.getElementById('notice');
   el.textContent = message;
   el.hidden = false;
   clearTimeout(noticeTimer);
-  noticeTimer = setTimeout(() => { el.hidden = true; }, NOTICE_MS);
+  noticeTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
 async function start() {
@@ -39,6 +44,7 @@ async function start() {
   const deleteBtn = document.getElementById('btn-delete');
   const selectionInfo = document.getElementById('selection-info');
   const snapBtn = document.getElementById('btn-snap');
+  const nameEl = document.getElementById('design-name');
 
   const canvas = new Canvas(document.getElementById('canvas'), design, {
     onNotice: showNotice,
@@ -69,6 +75,68 @@ async function start() {
   };
   updateGaps();
   design.subscribe(updateGaps);
+
+  // --- Save / load (spec 06) ---------------------------------------------
+
+  let currentName = DEFAULT_NAME;
+  const getCurrent = () => serializeDesign(currentName, design);
+
+  let storageWarned = false;
+  const autosave = () => {
+    try {
+      saveCurrent(getCurrent());
+    } catch (err) {
+      if (!storageWarned) {
+        storageWarned = true;
+        showNotice(`Autosave isn't working in this browser (${err.message}). Use Export to keep a copy.`, LONG_NOTICE_MS);
+      }
+    }
+  };
+  design.subscribe(autosave);
+
+  const setName = (name) => {
+    currentName = name;
+    nameEl.textContent = name;
+    autosave();
+  };
+
+  // A loaded design may break the overlap and inventory rules; it's shown with the problems in red.
+  const loadDesign = (data) => {
+    currentName = data.name;
+    nameEl.textContent = data.name;
+    const skipped = design.load(data.pieces);
+    canvas.fit();
+
+    const { overLimit, overlapping } = design.problems();
+    const problems = [...overLimit].map((id) => {
+      const type = design.types.get(id);
+      return `${design.usedCount(id)} × ${type.name}, but you own ${type.count}`;
+    });
+    if (overlapping.size > 0) problems.push(`${overlapping.size} pieces overlap`);
+    const messages = [];
+    if (problems.length > 0) messages.push(`This design breaks the rules (marked in red): ${problems.join('; ')}.`);
+    if (skipped.length > 0) {
+      const ids = [...new Set(skipped.map((p) => p.type))].join(', ');
+      messages.push(`Left out ${skipped.length} piece(s) of unknown type: ${ids}.`);
+    }
+    if (messages.length > 0) showNotice(messages.join(' '), LONG_NOTICE_MS);
+  };
+
+  setupDesignsUI({
+    getCurrent,
+    setName,
+    loadDesign,
+    notify: (message) => showNotice(message, LONG_NOTICE_MS),
+  });
+
+  try {
+    const saved = loadCurrent();
+    if (saved) loadDesign(saved);
+  } catch (err) {
+    showNotice(`Couldn't restore the last design: ${err.message}`, LONG_NOTICE_MS);
+  }
+
+  // --- Toolbar -----------------------------------------------------------
 
   rotateBtn.addEventListener('click', () => canvas.rotateSelected());
   deleteBtn.addEventListener('click', () => canvas.deleteSelected());

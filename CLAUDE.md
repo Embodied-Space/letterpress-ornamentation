@@ -17,9 +17,13 @@ gap that needs spacing material.
 - Keep specs to one concern each; split rather than grow them.
 
 ## Currently building
-- v1, due the week of 2026-10-19: specs `01` to `06` in `specs/`. Start with `specs/01-piece-data.defined.md`.
+- v1, due the week of 2026-10-19: specs `01` to `06` in `specs/` are built. Live at https://embodied-space.github.io/letterpress-ornamentation/
 - `09` (line snapping) was split out of 07 and built early, at the user's request.
-- `07` (connector highlighting) and `08` (spacer suggestions) are `idea`: don't build them until they're `defined`.
+- `07` (connector highlighting), `08` (spacer suggestions), `10` (group select and move) and `11` (straight auto-fill)
+  are `idea`: don't build them until they're `defined`.
+
+## Git
+- Never commit or push. The user handles all git commits and pushes; leave changes in the working tree.
 
 ## References
 - Before designing or implementing anything, check `references/` for relevant photos, measurements or notes.
@@ -32,7 +36,8 @@ gap that needs spacing material.
 - Adding a build step, framework or npm dependency. It must deploy as plain static files.
 - Putting piece sizes or counts in code. They belong in `data/pieces.json` only.
 - Treating placeholder geometry (`"placeholder": true`) as real. Real measurements are still to come.
-- Allowing overlaps, or placing more pieces than `count`. Both are hard rules.
+- Allowing overlaps, or placing more pieces than `count`. Both are hard rules for editing. The one
+  exception: a loaded or imported design that already breaks them is shown with the problems in red (spec 06).
 - Coordinates that aren't whole points (the grid is 1 pt), or floating-point drift from repeated rotation.
 - Mirroring or flipping pieces. Physical type can only be rotated.
 - Opening `index.html` over `file://`. ES modules need a local server (see DEV.md).

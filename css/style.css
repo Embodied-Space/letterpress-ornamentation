@@ -10,6 +10,8 @@
   --grid: #e3ddd0;
   --grid-fine: #efebe2;
   --invalid: #f0c4bb;
+  --danger: #d0261a;
+  --danger-bg: #fbe3df;
   --gap: rgba(46, 110, 160, 0.14);
   --gap-strong: rgba(46, 110, 160, 0.38);
   --gap-edge: rgba(46, 110, 160, 0.5);
@@ -34,6 +36,8 @@
     --grid: #312e2a;
     --grid-fine: #262421;
     --invalid: #6b2a20;
+    --danger: #ff5a4a;
+    --danger-bg: #4a1d18;
     --gap: rgba(110, 170, 220, 0.14);
     --gap-strong: rgba(110, 170, 220, 0.38);
     --gap-edge: rgba(110, 170, 220, 0.45);
@@ -143,7 +147,44 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 }
 .toolbar-spacer { flex: 1; }
 .selection-info { font-size: 0.8rem; color: var(--muted); }
-.toolbar button {
+.header-actions { margin-left: auto; display: flex; align-items: center; gap: 0.4rem; }
+.design-name { font-size: 0.9rem; margin-right: 0.4rem; max-width: 16rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.dialog {
+  width: min(28rem, calc(100vw - 2rem));
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+}
+.dialog::backdrop { background: rgb(0 0 0 / 0.35); }
+.dialog-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.dialog-head h2 { margin: 0; }
+.save-form label { display: block; font-size: 0.85rem; margin-bottom: 0.3rem; }
+.save-row { display: flex; gap: 0.4rem; }
+.save-row input {
+  flex: 1;
+  font: inherit;
+  padding: 0.3rem 0.5rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.saved-list { list-style: none; margin: 1rem 0 0; padding: 0; }
+.saved-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--border);
+}
+.saved-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-count { font-size: 0.75rem; color: var(--muted); }
+#saved-empty { margin: 1rem 0 0; font-size: 0.85rem; }
+
+.toolbar button, .header-actions button, .dialog button {
   font: inherit;
   font-size: 0.85rem;
   min-width: 2rem;
@@ -154,7 +195,9 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
   border-radius: 4px;
   cursor: pointer;
 }
-.toolbar button:hover:not(:disabled) { border-color: var(--muted); }
+.toolbar button:hover:not(:disabled),
+.header-actions button:hover,
+.dialog button:hover { border-color: var(--muted); }
 .toolbar button:disabled { opacity: 0.45; cursor: default; }
 .toolbar button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--panel); }
 
@@ -168,6 +211,7 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
   background: var(--text);
   color: var(--bg);
   font-size: 0.85rem;
+  max-width: calc(100% - 2rem);
   pointer-events: none;
 }
 
@@ -201,6 +245,14 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .palette-item.used-up { cursor: not-allowed; opacity: 0.5; }
 .palette-item.used-up:hover { border-color: var(--border); }
 .palette-item.used-up .palette-usage { color: var(--accent); }
+/* A loaded design breaks the rules for this piece type (spec 06). */
+.palette-item.problem, .palette-item.problem:hover {
+  opacity: 1;
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+.palette-item.problem .palette-usage { color: var(--danger); font-weight: 600; }
+.placed.overlapping .piece-body { stroke: var(--danger); stroke-width: 2px; }
 
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(20rem, 1fr) auto; }

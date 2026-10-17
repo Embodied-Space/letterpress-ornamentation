@@ -36,8 +36,9 @@ measurement notes you worked from in `references/`.
 - Move a spec through its stages by renaming the file: `idea` → `defined` (decisions confirmed) → `done` (built).
 
 ## Deploy (GitHub Pages)
-- TODO: the project isn't a git repository yet. Run `git init` and create the GitHub repo.
-- TODO: in the repo settings, under Pages, deploy from the default branch, root folder. Record the URL in `README.md`.
+- Repo: https://github.com/Embodied-Space/letterpress-ornamentation
+- GitHub Pages deploys the `main` branch from the root folder. Pushing to `main` updates the site.
+- Live site: https://embodied-space.github.io/letterpress-ornamentation/
 
 ## Testing
 - TODO: no test setup decided yet. Gap measurement (spec 05) is the main logic worth unit-testing.

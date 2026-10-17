@@ -21,7 +21,7 @@ material.
 - Suggested spacing material (quads, leads, slugs, brass, coppers) for each gap
 
 ## Using it
-Open the hosted page: _TODO: GitHub Pages URL_
+Open the hosted page: https://embodied-space.github.io/letterpress-ornamentation/
 
 ## Units
 All measurements are in points: 12 pt = 1 pica, 72 pt = 1 inch.

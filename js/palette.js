@@ -36,7 +36,11 @@ export function renderPalette(listEl, pieces, onDragStart) {
 }
 
 // Show `used / owned` per piece type and disable types with none left (spec 04).
+// Types with a problem from a loaded design (more placed than owned, or overlapping) are marked red.
 export function updatePaletteUsage(listEl, design) {
+  const { overLimit, overlapping } = design.problems();
+  const overlappingTypes = new Set(design.pieces.filter((p) => overlapping.has(p.uid)).map((p) => p.type));
+
   for (const item of listEl.children) {
     const id = item.dataset.pieceId;
     const used = design.usedCount(id);
@@ -44,7 +48,13 @@ export function updatePaletteUsage(listEl, design) {
     const spare = design.hasSpare(id);
     item.querySelector('.palette-usage').textContent = `${used} / ${owned} used`;
     item.classList.toggle('used-up', !spare);
+    item.classList.toggle('problem', overLimit.has(id) || overlappingTypes.has(id));
     item.setAttribute('aria-disabled', String(!spare));
-    item.title = spare ? 'Drag onto the canvas' : 'All of these are placed. Delete one to free it up.';
+
+    const notes = [];
+    if (overLimit.has(id)) notes.push(`${used - owned} more placed than you own: delete some.`);
+    if (overlappingTypes.has(id)) notes.push('Some of these overlap another piece: move them apart.');
+    if (notes.length === 0) notes.push(spare ? 'Drag onto the canvas' : 'All of these are placed. Delete one to free it up.');
+    item.title = notes.join(' ');
   }
 }

@@ -20,6 +20,7 @@ Place, move, rotate and remove pieces quickly on a canvas measured in points, so
 - 1 pt grid only (no 0.5 pt mode).
 - 90° rotation.
 - No overlaps allowed. Pieces that only touch along an edge don't overlap.
+- Exception: a loaded design may already contain overlaps (see 06). They're shown and flagged, and editing can't add new ones.
 - Shortcuts: `R` rotates (also while dragging), right-click rotates while dragging, `Delete`/`Backspace` deletes, `Esc` cancels a drag or deselects.
 - Rotation turns a piece clockwise about its center, rounded to whole points so that turning back undoes it exactly.
 - Undo/redo is not in v1; it may come later.
