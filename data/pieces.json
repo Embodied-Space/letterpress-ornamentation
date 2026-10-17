@@ -1,0 +1,54 @@
+[
+  {
+    "id": "corner-block",
+    "name": "Corner block (1\" × 1\")",
+    "width": 72,
+    "height": 72,
+    "count": 4,
+    "lines": "M34.5 34.5 H72 V35.5 H35.5 V72 H34.5 Z M36.5 36.5 H72 V37.5 H37.5 V72 H36.5 Z",
+    "connectors": [
+      { "edge": "right", "offset": 36 },
+      { "edge": "bottom", "offset": 36 }
+    ],
+    "placeholder": true
+  },
+  {
+    "id": "corner-small",
+    "name": "Small corner (2 × 3 pica)",
+    "width": 24,
+    "height": 36,
+    "count": 5,
+    "lines": "M10.5 16.5 H24 V17.5 H11.5 V36 H10.5 Z M12.5 18.5 H24 V19.5 H13.5 V36 H12.5 Z",
+    "connectors": [
+      { "edge": "right", "offset": 18 },
+      { "edge": "bottom", "offset": 12 }
+    ],
+    "placeholder": true
+  },
+  {
+    "id": "offset",
+    "name": "Offset (4 × 1 pica)",
+    "width": 48,
+    "height": 12,
+    "count": 6,
+    "lines": "M0 0.5 H16 L32 8.5 H48 V9.5 H32 L16 1.5 H0 Z M0 2.5 H16 L32 10.5 H48 V11.5 H32 L16 3.5 H0 Z",
+    "connectors": [
+      { "edge": "left", "offset": 2 },
+      { "edge": "right", "offset": 10 }
+    ],
+    "placeholder": true
+  },
+  {
+    "id": "straight",
+    "name": "Straight rule (4 pica × 4 pt)",
+    "width": 48,
+    "height": 4,
+    "count": 30,
+    "lines": "M0 0.5 H48 V1.5 H0 Z M0 2.5 H48 V3.5 H0 Z",
+    "connectors": [
+      { "edge": "left", "offset": 2 },
+      { "edge": "right", "offset": 2 }
+    ],
+    "placeholder": true
+  }
+]
