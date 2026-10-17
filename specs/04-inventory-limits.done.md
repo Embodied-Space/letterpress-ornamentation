@@ -13,7 +13,8 @@ Make sure every design can be built with the pieces you actually own.
 - Editing counts in the UI (edit `pieces.json` instead).
 
 ## Confirmed decisions
-- Hard limit, not a warning.
+- Hard limit, not a warning. Enforced in the design model, not just the palette.
+- Pressing a used-up palette item shows a short notice instead of starting a drag.
 
 ## Open questions
 - Loading a saved design that uses more pieces than you now own (e.g. after counts change): load it with the extra pieces flagged, or refuse to load? (Decide in 06.)

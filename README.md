@@ -11,6 +11,7 @@ material.
 
 ## Features (v1, in progress)
 - Drag ornament pieces onto a canvas measured in points; they snap to a 1 pt grid and rotate in 90° steps
+- Right-click while dragging to rotate; optional "Snap lines" mode joins the double lines of neighboring pieces
 - Pieces can't overlap, and you can't place more of a piece than you own
 - Automatic gap measurement: the empty space inside the form, split into horizontal strips and labeled in points
 - Save designs in your browser; export and import them as JSON

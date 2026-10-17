@@ -9,12 +9,16 @@
 From the project root, start any static server, for example:
 
 ```sh
-python -m http.server 8000
+python -c "import http.server as h; h.SimpleHTTPRequestHandler.extensions_map['.js']='text/javascript'; h.test(HandlerClass=h.SimpleHTTPRequestHandler, port=8000)"
 # or
 npx serve .
 ```
 
 Then open http://localhost:8000.
+
+On Windows, plain `python -m http.server` can serve `.js` as `text/plain` (it takes MIME types from
+the registry), and the browser then refuses to run the modules and the page stays on "Loading pieces…".
+The one-liner above forces the right type. GitHub Pages isn't affected.
 
 There is no build step, and no dependencies to install.
 

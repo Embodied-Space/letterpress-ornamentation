@@ -18,7 +18,8 @@ gap that needs spacing material.
 
 ## Currently building
 - v1, due the week of 2026-10-19: specs `01` to `06` in `specs/`. Start with `specs/01-piece-data.defined.md`.
-- `07` (connectors) and `08` (spacer suggestions) are `idea`: don't build them until they're `defined`.
+- `09` (line snapping) was split out of 07 and built early, at the user's request.
+- `07` (connector highlighting) and `08` (spacer suggestions) are `idea`: don't build them until they're `defined`.
 
 ## References
 - Before designing or implementing anything, check `references/` for relevant photos, measurements or notes.

@@ -4,10 +4,58 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Letterpress Ornaments</title>
+  <link rel="stylesheet" href="css/style.css">
   <script type="module" src="js/main.js"></script>
 </head>
 <body>
-  <pre id="error" role="alert" hidden></pre>
-  <p id="status">Loading pieces…</p>
+  <header class="app-header">
+    <h1>Letterpress Ornaments</h1>
+    <p id="status" class="status">Loading pieces…</p>
+  </header>
+
+  <pre id="error" class="error" role="alert" hidden></pre>
+
+  <main class="layout">
+    <aside class="panel palette" aria-labelledby="palette-heading">
+      <h2 id="palette-heading">Pieces</h2>
+      <ul id="palette-list" class="palette-list"></ul>
+    </aside>
+
+    <section class="canvas-wrap" aria-label="Layout canvas">
+      <div class="toolbar" role="toolbar" aria-label="Canvas tools">
+        <button type="button" id="btn-rotate" disabled title="Rotate 90° (R)">Rotate</button>
+        <button type="button" id="btn-delete" disabled title="Delete (Del)">Delete</button>
+        <span id="selection-info" class="selection-info"></span>
+        <span class="toolbar-spacer"></span>
+        <button type="button" id="btn-snap" aria-pressed="true" title="Snap lines together while dragging (S)">Snap lines</button>
+        <button type="button" id="btn-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+        <button type="button" id="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" id="btn-fit" title="Zoom to fit">Fit</button>
+      </div>
+      <svg id="canvas" class="canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 432">
+        <defs>
+          <pattern id="grid-pt" width="1" height="1" patternUnits="userSpaceOnUse">
+            <path d="M1 0 H0 V1" class="grid-line grid-line-fine" />
+          </pattern>
+          <pattern id="grid-pica" width="12" height="12" patternUnits="userSpaceOnUse">
+            <path d="M12 0 H0 V12" class="grid-line" />
+          </pattern>
+        </defs>
+        <rect id="grid-fine" x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pt)" />
+        <rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pica)" />
+        <g id="layer-gaps"></g>
+        <g id="layer-pieces"></g>
+        <g id="layer-ghost"></g>
+      </svg>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+    </section>
+
+    <aside class="panel info" aria-labelledby="info-heading">
+      <h2 id="info-heading">Form</h2>
+      <p id="form-size" class="muted">No pieces placed.</p>
+      <h2>Gaps</h2>
+      <ol id="gap-list" class="gap-list"></ol>
+    </aside>
+  </main>
 </body>
 </html>
