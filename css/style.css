@@ -10,6 +10,10 @@
   --grid: #e3ddd0;
   --grid-fine: #efebe2;
   --invalid: #f0c4bb;
+  --gap: rgba(46, 110, 160, 0.14);
+  --gap-strong: rgba(46, 110, 160, 0.38);
+  --gap-edge: rgba(46, 110, 160, 0.5);
+  --gap-text: #1f5580;
   --error-bg: #fbe9e6;
   --error-text: #8a1c10;
   --panel-width: 15rem;
@@ -30,6 +34,10 @@
     --grid: #312e2a;
     --grid-fine: #262421;
     --invalid: #6b2a20;
+    --gap: rgba(110, 170, 220, 0.14);
+    --gap-strong: rgba(110, 170, 220, 0.38);
+    --gap-edge: rgba(110, 170, 220, 0.45);
+    --gap-text: #9fcbef;
     --error-bg: #3d1f1a;
     --error-text: #f2b3a6;
   }
@@ -171,6 +179,20 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .placed.lifted { opacity: 0.3; }
 .ghost { opacity: 0.75; pointer-events: none; }
 .ghost.invalid .piece-body { fill: var(--invalid); stroke: var(--accent); }
+.gap-area { fill: var(--gap); stroke: var(--gap-edge); stroke-width: 1px; vector-effect: non-scaling-stroke; }
+.gap.highlight .gap-area { fill: var(--gap-strong); }
+.gap-label {
+  fill: var(--gap-text);
+  text-anchor: middle;
+  dominant-baseline: central;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.gap-item { padding: 0.35rem 0.4rem; border-radius: 4px; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.gap-item:hover { background: var(--bg); }
+.gap-where { font-size: 0.75rem; color: var(--muted); }
+#gap-count { font-weight: 400; }
+
 .snap-marker { fill: none; stroke: var(--accent); stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
 
 .palette-item { cursor: grab; touch-action: none; user-select: none; }

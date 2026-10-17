@@ -2,6 +2,8 @@ import { loadPieces } from './pieces.js';
 import { renderPalette, updatePaletteUsage } from './palette.js';
 import { Design } from './design.js';
 import { Canvas } from './canvas.js';
+import { computeGaps } from './gaps.js';
+import { renderInfo } from './info.js';
 
 const NOTICE_MS = 2500;
 
@@ -54,6 +56,19 @@ async function start() {
   renderPalette(paletteList, pieces, (id, e) => canvas.beginNewPiece(id, e));
   updatePaletteUsage(paletteList, design);
   design.subscribe(() => updatePaletteUsage(paletteList, design));
+
+  const infoEls = {
+    formEl: document.getElementById('form-size'),
+    listEl: document.getElementById('gap-list'),
+    countEl: document.getElementById('gap-count'),
+  };
+  const updateGaps = () => {
+    const result = computeGaps(design.pieces.map((p) => design.rectOf(p)));
+    canvas.setGaps(result.gaps);
+    renderInfo(infoEls, result, (i) => canvas.highlightGap(i));
+  };
+  updateGaps();
+  design.subscribe(updateGaps);
 
   rotateBtn.addEventListener('click', () => canvas.rotateSelected());
   deleteBtn.addEventListener('click', () => canvas.deleteSelected());

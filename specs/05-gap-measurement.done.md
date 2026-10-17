@@ -21,10 +21,10 @@ Show exactly what empty space has to be filled with spacing material, and where,
 - Form is the pieces' bounding box.
 - Split into horizontal strips (like lines of type, filled line by line).
 - Gap sizes in v1; spacer suggestions come later.
-
-## Open questions
-- Should step 3 (merging) be on by default, or a toggle?
-- Leave out gaps narrower than some minimum, or always show every gap down to 1 pt?
+- Merging (step 3) is always on. It's a single option in the code (`computeGaps(rects, { merge })`) if a toggle is wanted later.
+- Every gap is shown, down to 1 pt: every gap has to be filled in the real form.
+- Canvas labels are shown only where they fit inside the gap; hovering a gap shows its size, and the info panel always lists every gap.
+- Gap positions in the panel are measured from the form's top-left corner. Hovering a gap in the list highlights it on the canvas.
 
 ## Acceptance criteria
 - Gap areas + piece areas = form area, exactly.

@@ -7,6 +7,7 @@ import { findSnap } from './connectors.js';
 
 const DRAG_THRESHOLD_PX = 3;
 const SNAP_RADIUS_PX = 10; // how close (on screen) line ends must be to snap together
+const GAP_LABEL_PX = 11;
 const MIN_SCALE = 0.25; // screen px per pt
 const MAX_SCALE = 40;
 const FINE_GRID_MIN_SCALE = 6; // show the 1 pt grid from this zoom up
@@ -24,6 +25,8 @@ export class Canvas {
     this.onSnapChange = onSnapChange;
     this.snapLines = true;
     this.swallowContextMenu = false;
+    this.layerGaps = svg.querySelector('#layer-gaps');
+    this.gaps = [];
     this.layerPieces = svg.querySelector('#layer-pieces');
     this.layerGhost = svg.querySelector('#layer-ghost');
     this.gridLines = svg.querySelectorAll('.grid-line');
@@ -82,6 +85,7 @@ export class Canvas {
     this.svg.setAttribute('viewBox', `${x} ${y} ${width / scale} ${height / scale}`);
     for (const line of this.gridLines) line.setAttribute('stroke-width', 1 / scale);
     this.fineGrid.style.display = scale >= FINE_GRID_MIN_SCALE ? '' : 'none';
+    this.renderGaps(); // labels keep a constant screen size
   }
 
   // Zoom to show every placed piece (or a default area when there are none).
@@ -122,6 +126,41 @@ export class Canvas {
   }
 
   // --- Drawing -----------------------------------------------------------
+
+  setGaps(gaps) {
+    this.gaps = gaps;
+    this.renderGaps();
+  }
+
+  // Tinted gap rectangles, labeled `w × h` where the label fits inside.
+  renderGaps() {
+    const fontSize = GAP_LABEL_PX / this.view.scale;
+    this.layerGaps.replaceChildren(...this.gaps.map((gap, i) => {
+      const g = svgEl('g', { class: 'gap', 'data-index': i });
+      const label = `${gap.width} × ${gap.height}`;
+      const title = svgEl('title');
+      title.textContent = `${label} pt`;
+      g.append(svgEl('rect', { class: 'gap-area', x: gap.x, y: gap.y, width: gap.width, height: gap.height }), title);
+      // Rough text width: ~0.6 em per character.
+      if (label.length * 0.6 * fontSize <= gap.width && fontSize * 1.2 <= gap.height) {
+        const text = svgEl('text', {
+          class: 'gap-label',
+          x: gap.x + gap.width / 2,
+          y: gap.y + gap.height / 2,
+          'font-size': fontSize,
+        });
+        text.textContent = label;
+        g.append(text);
+      }
+      return g;
+    }));
+  }
+
+  highlightGap(index) {
+    for (const g of this.layerGaps.children) {
+      g.classList.toggle('highlight', Number(g.dataset.index) === index);
+    }
+  }
 
   render() {
     const lifted = this.drag?.kind === 'move' && this.drag.moved ? this.drag.uid : null;
