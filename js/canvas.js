@@ -9,7 +9,7 @@ import { svgEl, pieceGraphic, placementTransform } from './svg.js';
 import {
   footprint, boundingBox, rectsOverlap, turnArrangement,
 } from './design.js';
-import { findSnap, outsideJoins } from './connectors.js';
+import { findSnap, outsideJoins, mirroredRotation } from './connectors.js';
 import { straightTypes, fillRun, layRun } from './autofill.js';
 
 const DRAG_THRESHOLD_PX = 3;
@@ -541,6 +541,27 @@ export class Canvas {
     }
   }
 
+  // Swaps each selected piece for its mirror image in place (spec 16): its mirror partner, or itself
+  // turned, at the rotation that matches a left-right flip on screen.
+  mirrorSelected() {
+    if (this.drag || this.selected.size === 0) return;
+    const changes = [];
+    const noMirror = new Set();
+    for (const p of this.design.pieces.filter((piece) => this.selected.has(piece.uid))) {
+      const type = this.design.types.get(p.type);
+      const partner = type.mirror && this.design.types.get(type.mirror);
+      const turns = partner === type ? [180, 90, 270, 0] : [0, 180, 90, 270];
+      const rotation = partner ? mirroredRotation(type, p.rotation, partner, turns.map((t) => (p.rotation + t) % 360)) : null;
+      if (rotation === null) noMirror.add(type.name);
+      else changes.push({ uid: p.uid, type: partner.id, rotation });
+    }
+    if (changes.length > 0 && !this.design.replaceMany(changes)) {
+      this.onNotice("Can't swap: not enough of the mirror pieces left.");
+    } else if (noMirror.size > 0) {
+      this.onNotice(`No mirror image in the set for ${[...noMirror].join(', ')}.`);
+    }
+  }
+
   // Undo and redo (spec 15) wait until a drag is over.
   undo() {
     if (!this.drag) this.design.undo();
@@ -569,6 +590,8 @@ export class Canvas {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'r' || e.key === 'R') {
       this.rotateSelected();
+    } else if (e.key === 'm' || e.key === 'M') {
+      this.mirrorSelected();
     } else if (e.key === 's' || e.key === 'S') {
       this.setSnapLines(!this.snapLines);
     } else if (e.key === 'f' || e.key === 'F') {

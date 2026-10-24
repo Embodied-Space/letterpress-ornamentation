@@ -42,6 +42,22 @@ export function worldConnectors(type, x, y, rotation) {
   });
 }
 
+const connectorKey = (cs) => cs.map((c) => `${c.x},${c.y},${c.nx},${c.ny}`).sort().join(' ');
+
+// The rotation at which `toType` is the left-right mirror image (as seen on screen, in the same
+// footprint) of `fromType` placed at `rotation`, judged by connectors (spec 16). `preferred` lists the
+// rotations to try first when several match. Returns null if none does.
+export function mirroredRotation(fromType, rotation, toType, preferred) {
+  const from = worldConnectors(fromType, 0, 0, rotation);
+  const width = rotation % 180 === 0 ? fromType.width : fromType.height;
+  const height = rotation % 180 === 0 ? fromType.height : fromType.width;
+  const flipped = connectorKey(from.map((c) => ({ ...c, x: width - c.x, nx: c.nx === 0 ? 0 : -c.nx })));
+  return preferred.find((r) => {
+    const [w, h] = r % 180 === 0 ? [toType.width, toType.height] : [toType.height, toType.width];
+    return w === width && h === height && connectorKey(worldConnectors(toType, 0, 0, r)) === flipped;
+  }) ?? null;
+}
+
 const piecesConnectors = (design, placements) => placements.flatMap(
   (p) => worldConnectors(design.types.get(p.type), p.x, p.y, p.rotation),
 );

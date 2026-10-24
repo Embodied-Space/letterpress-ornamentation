@@ -13,6 +13,7 @@ material.
 - Drag ornament pieces onto a canvas measured in points; they snap to a 1 pt grid and rotate in 90° steps
 - Right-click while dragging to rotate; optional "Snap lines" mode joins the double lines of neighboring pieces
 - Shift-click pieces, or shift-drag a box on empty canvas, to select several; drag, rotate or delete them together
+- Press `M` to swap the selected pieces for their mirror images (a "z" offset for an "s", one corner for its mirror), or turn a symmetric piece to match
 - Drag a piece (or a selection) straight out from the piece it's joined to, and straight rules fill the gap behind it. Toggle this with the "Auto-fill" button or `F`; rotating during the drag also turns it off for that drag
 - Undo and redo edits (`Ctrl/⌘ Z`, `Shift Ctrl/⌘ Z`). Loading, importing or clearing a design starts a fresh history
 - Pieces can't overlap, and you can't place more of a piece than you own

@@ -100,6 +100,18 @@ export function validatePieces(data) {
     }
   });
 
+  // Optional mirror partner (spec 16): a known type whose `mirror` names this one back, or itself.
+  const byId = new Map(data.filter((p) => typeof p?.id === 'string').map((p) => [p.id, p]));
+  for (const piece of byId.values()) {
+    if (piece.mirror === undefined) continue;
+    const partner = byId.get(piece.mirror);
+    if (partner === undefined) {
+      problems.push(`piece "${piece.id}": "mirror" must be the id of a piece type`);
+    } else if (partner.mirror !== piece.id) {
+      problems.push(`piece "${piece.id}": its mirror "${piece.mirror}" must have "mirror": "${piece.id}"`);
+    }
+  }
+
   if (problems.length > 0) throw new PieceDataError(problems);
 
   return Object.freeze(data.map((piece) => Object.freeze({
@@ -110,6 +122,7 @@ export function validatePieces(data) {
     count: piece.count,
     lines: piece.lines,
     connectors: Object.freeze(piece.connectors.map((c) => Object.freeze({ edge: c.edge, offset: c.offset }))),
+    mirror: piece.mirror ?? null,
     placeholder: piece.placeholder,
   })));
 }

@@ -12,6 +12,7 @@ Describe every ornament piece in a single data file, so the canvas, inventory an
   - `count`: how many you own
   - `lines`: the double-line artwork as SVG path data in piece-local point coordinates (origin top-left)
   - `connectors`: where the double line meets the edge of the body: `{ "edge": "top|right|bottom|left", "offset": <pt from the edge's start> }`
+  - `mirror` (optional): the `id` of the piece type that is its mirror image, or its own `id` if it is symmetric (spec 16)
   - `placeholder`: `true` until the real measurements have been entered
 - The 19 piece types from the hand count of 2026-10-23 (sizes and counts are real; see
   `references/measurements/piece-inventory-2026-10-23.md` for what is still guessed):
@@ -26,12 +27,13 @@ Describe every ornament piece in a single data file, so the canvas, inventory an
 | `terminator-p`, `terminator-q` | 12 × 12 | 4, 3 | line end; q is the mirror of p |
 | `quarter-turn` | 12 × 12 | 7 | quarter circle |
 | `corner-5` | 24 × 24 | 2 | L corner |
-| `corner-4`, `corner-3` | 24 × 36 | 2, 1 | L corner; 3 is the mirror of 4 |
+| `corner-4`, `corner-3` | 36 × 24 | 2, 1 | L corner; 3 is the mirror of 4 |
 | `corner-11`, `corner-10` | 48 × 48 | 1, 3 | L corner; 10 is the mirror of 11 |
 
 ## Out of scope
 - Spacing material (see 08).
-- Photos or bitmap artwork of the pieces. Vector placeholders only for now.
+- Photos or bitmap artwork of the pieces. The artwork is vector, traced from the photos in
+  `references/ornament_pictures/` (see `references/measurements/artwork-from-photos-2026-10-24.md`).
 
 ## Confirmed decisions
 - All units are points (1 pica = 12 pt, 1" = 72 pt).
@@ -39,11 +41,13 @@ Describe every ornament piece in a single data file, so the canvas, inventory an
 - Every piece type has the same double-line spacing and thickness.
 - `width`, `height` and `count` must be whole numbers (the canvas grid is 1 pt).
 - A connector's `offset` is measured from the left end of the top/bottom edge, or the top end of the left/right edge.
-- `lines` is filled (not stroked) path data. Placeholder art: two 1 pt lines with a 1 pt gap.
+- `lines` is filled (not stroked) path data. The two lines are 0.6 pt wide and 2.5 pt apart (centre to
+  centre), centred on the connector. `references/code/piece-artwork.py` generates it.
 
 ## Open questions
-- Exact line thickness, the gap between the two lines, and where the line sits within each body (needed for 07).
-- Connector positions marked "guessed" in the 2026-10-23 inventory note.
+- Line thickness and spacing are read from photos (about ±0.2 pt). A proof or caliper reading would confirm them.
+- The centre of the 48 × 48 spiral (`corner-10`, `corner-11`) is approximate; they stay `placeholder` until a
+  sharper photo or proof is traced.
 
 ## Acceptance criteria
 - `data/pieces.json` loads and validates on page start, and an error is shown if a required field is missing.

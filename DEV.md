@@ -28,7 +28,9 @@ ornament set is in `data/pieces.json`; plans are in `specs/`; reference material
 
 ## Updating the ornament set
 Edit `data/pieces.json` (format in `specs/01-piece-data.defined.md`). Sizes are in points.
-Set `"placeholder": false` on a piece once its real measurements are in. Put the photos and
+The `lines` artwork is generated: edit the traced points in `references/code/piece-artwork.py` and run
+`python3 references/code/piece-artwork.py` (it checks every connector has its two line ends, then
+rewrites `lines` in `data/pieces.json`). Set `"placeholder": false` on a piece once its real measurements are in. Put the photos and
 measurement notes you worked from in `references/`.
 
 ## Working with specs

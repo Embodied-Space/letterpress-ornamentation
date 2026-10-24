@@ -25,3 +25,5 @@ Connector offsets in `pieces.json` are to the centre of the 6 pt line.
 - Guessed: terminators take the line in at the bottom, at one side (the "stem"); "q" is the mirror of "p".
 - Guessed: the quarter turn joins the top edge (centre 3 from the left) to the right edge (centre 9 from the top).
 - All artwork is still placeholder (two 1 pt lines, 1 pt gap); line thickness and spacing are unmeasured.
+
+See `artwork-from-photos-2026-10-24.md` for what the photos confirmed and changed (corner 5, corners 3/4).

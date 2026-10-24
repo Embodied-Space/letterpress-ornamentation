@@ -205,6 +205,27 @@ export class Design {
     });
   }
 
+  // Swaps placed pieces for other types and rotations in place, as one step (spec 16). `changes` are
+  // { uid, type, rotation }. Refused (returns false) if a type would go over `count` or a piece would
+  // then overlap another.
+  replaceMany(changes) {
+    if (changes.some((c) => !this.get(c.uid))) return false;
+    const changed = new Map(changes.map(({ uid, type, rotation }) => [uid, { type, rotation }]));
+    const next = this.pieces.map((p) => (changed.has(p.uid) ? Object.freeze({ ...p, ...changed.get(p.uid) }) : p));
+    if (!next.every((p) => this.isValidPlacement(p))) return false;
+    for (const typeId of new Set(changes.map((c) => c.type))) {
+      const after = next.filter((p) => p.type === typeId).length;
+      if (after > this.types.get(typeId).count && after > this.usedCount(typeId)) return false;
+    }
+    const rects = next.map((p) => this.rectOf(p));
+    for (let i = 0; i < next.length; i++) {
+      if (!changed.has(next[i].uid)) continue;
+      if (rects.some((r, j) => j !== i && rectsOverlap(rects[i], r))) return false;
+    }
+    this.commit(next);
+    return true;
+  }
+
   // Replaces the whole design with saved pieces ({ type, x, y, rotation }), without the overlap and
   // inventory checks: a saved or imported design may break them, and is then shown and flagged
   // (see problems()) rather than refused. Pieces of unknown types can't be drawn; they're skipped
