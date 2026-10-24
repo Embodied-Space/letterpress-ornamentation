@@ -19,6 +19,20 @@ export function rectsOverlap(a, b) {
     && a.y < b.y + b.height && b.y < a.y + a.height;
 }
 
+// Turns an arrangement of pieces 90° (clockwise on the metal, unless `clockwise` is false) within its
+// bounding box (w × h). Members are { dx, dy, width, height, rotation, ... } relative to the box's
+// top-left; the result is relative to the turned box (h × w). Same mapping as placementTransform().
+export function turnArrangement(members, w, h, clockwise = true) {
+  return members.map((m) => ({
+    ...m,
+    dx: clockwise ? h - m.dy - m.height : m.dy,
+    dy: clockwise ? m.dx : w - m.dx - m.width,
+    width: m.height,
+    height: m.width,
+    rotation: (m.rotation + (clockwise ? 90 : 270)) % 360,
+  }));
+}
+
 export function boundingBox(rects) {
   if (rects.length === 0) return null;
   const x = Math.min(...rects.map((r) => r.x));
@@ -51,13 +65,63 @@ export class Design {
     return { x: piece.x, y: piece.y, ...footprint(this.types.get(piece.type), piece.rotation) };
   }
 
+  // A known type, on whole points, at one of the four rotations.
+  isValidPlacement({ type, x, y, rotation }) {
+    return this.types.has(type) && Number.isInteger(x) && Number.isInteger(y) && ROTATIONS.includes(rotation);
+  }
+
   // Can a piece ({ type, x, y, rotation }) sit here? `ignoreUid` is the piece being moved, if any.
   canOccupy(candidate, ignoreUid = null) {
-    if (!this.types.has(candidate.type)) return false;
-    if (!Number.isInteger(candidate.x) || !Number.isInteger(candidate.y)) return false;
-    if (!ROTATIONS.includes(candidate.rotation)) return false;
+    if (!this.isValidPlacement(candidate)) return false;
     const rect = this.rectOf(candidate);
     return this.pieces.every((p) => p.uid === ignoreUid || !rectsOverlap(rect, this.rectOf(p)));
+  }
+
+  // The pieces `uids` as an arrangement: their bounding box, and each piece relative to its top-left
+  // (the members turnArrangement() takes).
+  arrangement(uids) {
+    const pieces = [...uids].map((uid) => this.get(uid)).filter(Boolean);
+    const box = boundingBox(pieces.map((p) => this.rectOf(p)));
+    const members = pieces.map((p) => ({
+      uid: p.uid, type: p.type, rotation: p.rotation,
+      dx: p.x - box.x, dy: p.y - box.y, ...footprint(this.types.get(p.type), p.rotation),
+    }));
+    return { box, members };
+  }
+
+  // Can several pieces move and new ones be added at once? `moves` are { uid, x, y, rotation } and
+  // `adds` are { type, x, y, rotation }. Moved and added pieces may not overlap each other or any
+  // piece left where it is, and adds must stay within `count` (spec 04).
+  canApply({ moves = [], adds = [] }) {
+    if (moves.some((m) => !this.get(m.uid))) return false;
+    const candidates = [...moves.map((m) => ({ ...m, type: this.get(m.uid).type })), ...adds];
+    if (!candidates.every((c) => this.isValidPlacement(c))) return false;
+    for (const typeId of new Set(adds.map((a) => a.type))) {
+      const n = adds.filter((a) => a.type === typeId).length;
+      if (this.usedCount(typeId) + n > this.types.get(typeId).count) return false;
+    }
+    const rects = candidates.map((c) => this.rectOf(c));
+    for (let i = 0; i < rects.length; i++) {
+      for (let j = i + 1; j < rects.length; j++) {
+        if (rectsOverlap(rects[i], rects[j])) return false;
+      }
+    }
+    const movedUids = new Set(moves.map((m) => m.uid));
+    const rest = this.pieces.filter((p) => !movedUids.has(p.uid)).map((p) => this.rectOf(p));
+    return rects.every((r) => rest.every((s) => !rectsOverlap(r, s)));
+  }
+
+  // Applies canApply()'s changes as one step. Returns false (and changes nothing) if they're not allowed.
+  applyChanges({ moves = [], adds = [] }) {
+    if (!this.canApply({ moves, adds })) return false;
+    const moved = new Map(moves.map(({ uid, x, y, rotation }) => [uid, { x, y, rotation }]));
+    const added = adds.map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
+    this.pieces = [
+      ...this.pieces.map((p) => (moved.has(p.uid) ? Object.freeze({ ...p, ...moved.get(p.uid) }) : p)),
+      ...added,
+    ];
+    this.changed();
+    return true;
   }
 
   usedCount(typeId) {
@@ -85,17 +149,22 @@ export class Design {
     return this.update(uid, rotation === undefined ? { x, y } : { x, y, rotation });
   }
 
-  // Turns a piece 90° (clockwise on the metal, unless `clockwise` is false) about its center. The
-  // offset uses Math.trunc, which is symmetric around zero, so turning back undoes it exactly and
-  // four turns return to the start.
+  // Turns a piece 90° (clockwise on the metal, unless `clockwise` is false) about its center.
   rotate(uid, clockwise = true) {
-    const piece = this.get(uid);
-    if (!piece) return false;
-    const { width, height } = this.rectOf(piece);
-    return this.update(uid, {
-      rotation: (piece.rotation + (clockwise ? 90 : 270)) % 360,
-      x: piece.x + Math.trunc((width - height) / 2),
-      y: piece.y + Math.trunc((height - width) / 2),
+    return this.rotateGroup([uid], clockwise);
+  }
+
+  // Turns pieces 90° as one block about the center of their bounding box (spec 10). The offset uses
+  // Math.trunc, which is symmetric around zero, so turning back undoes it exactly and four turns
+  // return to the start.
+  rotateGroup(uids, clockwise = true) {
+    const { box, members } = this.arrangement(uids);
+    if (members.length === 0) return false;
+    const x = box.x + Math.trunc((box.width - box.height) / 2);
+    const y = box.y + Math.trunc((box.height - box.width) / 2);
+    return this.applyChanges({
+      moves: turnArrangement(members, box.width, box.height, clockwise)
+        .map((m) => ({ uid: m.uid, x: x + m.dx, y: y + m.dy, rotation: m.rotation })),
     });
   }
 
@@ -141,6 +210,14 @@ export class Design {
   remove(uid) {
     if (!this.get(uid)) return false;
     this.pieces = this.pieces.filter((p) => p.uid !== uid);
+    this.changed();
+    return true;
+  }
+
+  removeMany(uids) {
+    const gone = new Set(uids);
+    if (!this.pieces.some((p) => gone.has(p.uid))) return false;
+    this.pieces = this.pieces.filter((p) => !gone.has(p.uid));
     this.changed();
     return true;
   }

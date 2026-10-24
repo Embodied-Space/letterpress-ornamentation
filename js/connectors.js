@@ -42,14 +42,19 @@ export function worldConnectors(type, x, y, rotation) {
   });
 }
 
-// Looks for a nearby connector on a placed piece that faces one of the candidate's connectors.
-// Returns the closest valid snapped position { x, y, point } within `radius` pt, or null.
-// A snap is only offered if the snapped piece sits on whole points and overlaps nothing.
-export function findSnap(design, candidate, ignoreUid, radius) {
-  const mine = worldConnectors(design.types.get(candidate.type), candidate.x, candidate.y, candidate.rotation);
+const piecesConnectors = (design, placements) => placements.flatMap(
+  (p) => worldConnectors(design.types.get(p.type), p.x, p.y, p.rotation),
+);
+
+// Looks for a nearby connector on a placed piece (other than `ignoreUids`) that faces one of the
+// candidates' connectors. `candidates` are placements ({ type, x, y, rotation }) dragged together.
+// Returns the closest valid shift { dx, dy, point } within `radius` pt, or null. A snap is only
+// offered on whole points, and when `isFree(dx, dy)` says the shifted candidates overlap nothing.
+export function findSnap(design, candidates, ignoreUids, radius, isFree) {
+  const mine = piecesConnectors(design, candidates);
   let best = null;
   for (const other of design.pieces) {
-    if (other.uid === ignoreUid) continue;
+    if (ignoreUids.has(other.uid)) continue;
     const theirs = worldConnectors(design.types.get(other.type), other.x, other.y, other.rotation);
     for (const t of theirs) {
       for (const c of mine) {
@@ -59,11 +64,18 @@ export function findSnap(design, candidate, ignoreUid, radius) {
         if (!Number.isInteger(dx) || !Number.isInteger(dy)) continue;
         const dist = Math.hypot(dx, dy);
         if (dist > radius || (best && dist >= best.dist)) continue;
-        const snapped = { ...candidate, x: candidate.x + dx, y: candidate.y + dy };
-        if (!design.canOccupy(snapped, ignoreUid)) continue;
-        best = { x: snapped.x, y: snapped.y, dist, point: { x: t.x, y: t.y } };
+        if (!isFree(dx, dy)) continue;
+        best = { dx, dy, dist, point: { x: t.x, y: t.y } };
       }
     }
   }
   return best;
+}
+
+// Where the pieces `uids` are joined to pieces outside them: each connector of theirs that touches a
+// facing connector of another piece, as { x, y, nx, ny } with the normal pointing out of `uids`.
+export function outsideJoins(design, uids) {
+  const mine = piecesConnectors(design, design.pieces.filter((p) => uids.has(p.uid)));
+  const theirs = piecesConnectors(design, design.pieces.filter((p) => !uids.has(p.uid)));
+  return mine.filter((c) => theirs.some((t) => t.x === c.x && t.y === c.y && t.nx === -c.nx && t.ny === -c.ny));
 }

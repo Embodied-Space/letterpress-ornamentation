@@ -19,9 +19,9 @@ gap that needs spacing material.
 ## Currently building
 - v1, due the week of 2026-10-19: specs `01` to `06` in `specs/` are built. Live at https://embodied-space.github.io/letterpress-ornamentation/
 - `09` (line snapping) was split out of 07 and built early, at the user's request.
-- `13` (lockup and print views) and `14` (paper) are built.
-- `07` (connector highlighting), `08` (spacer suggestions), `10` (group select and move), `11` (straight auto-fill)
-  and `12` (text placeholders) are `idea`: don't build them until they're `defined`.
+- `10` (group select and move), `11` (straight auto-fill), `13` (lockup and print views) and `14` (paper) are built.
+- `07` (connector highlighting), `08` (spacer suggestions) and `12` (text placeholders) are `idea`: don't build
+  them until they're `defined`.
 
 ## Git
 - Never commit or push. The user handles all git commits and pushes; leave changes in the working tree.

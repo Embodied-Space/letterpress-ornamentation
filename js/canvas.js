@@ -6,8 +6,11 @@
 // converts pointer positions into, so editing behaves the same in both views.
 
 import { svgEl, pieceGraphic, placementTransform } from './svg.js';
-import { footprint, boundingBox } from './design.js';
-import { findSnap } from './connectors.js';
+import {
+  footprint, boundingBox, rectsOverlap, turnArrangement,
+} from './design.js';
+import { findSnap, outsideJoins } from './connectors.js';
+import { straightTypes, fillRun, layRun } from './autofill.js';
 
 const DRAG_THRESHOLD_PX = 3;
 const SNAP_RADIUS_PX = 10; // how close (on screen) line ends must be to snap together
@@ -20,17 +23,25 @@ const FIT_MARGIN = 24;
 
 const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
+// The rectangle between two corners.
+const rectBetween = (a, b) => ({
+  x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), width: Math.abs(a.x - b.x), height: Math.abs(a.y - b.y),
+});
+
 export class Canvas {
   constructor(svg, design, {
-    onSelectionChange = () => {}, onNotice = () => {}, onSnapChange = () => {}, onViewChange = () => {},
+    onSelectionChange = () => {}, onNotice = () => {}, onSnapChange = () => {}, onAutofillChange = () => {},
+    onViewChange = () => {},
   } = {}) {
     this.svg = svg;
     this.design = design;
     this.onSelectionChange = onSelectionChange;
     this.onNotice = onNotice;
     this.onSnapChange = onSnapChange;
+    this.onAutofillChange = onAutofillChange;
     this.onViewChange = onViewChange;
     this.snapLines = true;
+    this.autofill = true; // straight auto-fill mode (spec 11)
     this.printView = false;
     this.swallowContextMenu = false;
     this.worlds = svg.querySelectorAll('.world');
@@ -45,7 +56,8 @@ export class Canvas {
 
     this.view = { x: 0, y: 0, scale: 1 };
     this.fitted = false;
-    this.selectedUid = null;
+    this.selected = new Set(); // uids (spec 10)
+    this.straights = straightTypes(design.types);
     this.drag = null;
 
     this.onPointerMove = this.onPointerMove.bind(this);
@@ -66,12 +78,19 @@ export class Canvas {
 
     this.render();
     this.onSnapChange(this.snapLines);
+    this.onAutofillChange(this.autofill);
     this.onViewChange(this.printView);
   }
 
   setSnapLines(on) {
     this.snapLines = on;
     this.onSnapChange(on);
+    if (this.drag?.client) this.updateGhost();
+  }
+
+  setAutofill(on) {
+    this.autofill = on;
+    this.onAutofillChange(on);
     if (this.drag?.client) this.updateGhost();
   }
 
@@ -222,32 +241,40 @@ export class Canvas {
 
   render() {
     this.renderPaper(this.design.paper);
-    const lifted = this.drag?.kind === 'move' && this.drag.moved ? this.drag.uid : null;
+    const lifted = new Set(this.drag?.kind === 'move' && this.drag.moved ? this.drag.uids : []);
     const { overlapping } = this.design.problems(); // only possible after loading a saved design
     this.layerPieces.replaceChildren(...this.design.pieces.map((p) => {
       const type = this.design.types.get(p.type);
       const g = pieceGraphic(type);
       g.classList.add('placed');
-      g.classList.toggle('selected', p.uid === this.selectedUid);
-      g.classList.toggle('lifted', p.uid === lifted);
+      g.classList.toggle('selected', this.selected.has(p.uid));
+      g.classList.toggle('lifted', lifted.has(p.uid));
       g.classList.toggle('overlapping', overlapping.has(p.uid));
       g.dataset.uid = p.uid;
       g.setAttribute('transform', placementTransform(type, p.x, p.y, p.rotation));
       return g;
     }));
     // Re-report the selection so its details stay current after a move, rotate or delete.
-    if (this.selectedUid !== null) this.select(this.design.get(this.selectedUid) ? this.selectedUid : null);
+    this.select([...this.selected].filter((uid) => this.design.get(uid)));
   }
 
-  select(uid) {
-    this.selectedUid = uid;
+  select(uids) {
+    this.selected = new Set(uids);
     for (const g of this.layerPieces.children) {
-      g.classList.toggle('selected', Number(g.dataset.uid) === uid);
+      g.classList.toggle('selected', this.selected.has(Number(g.dataset.uid)));
     }
-    this.onSelectionChange(uid === null ? null : this.design.get(uid));
+    this.onSelectionChange(this.design.pieces.filter((p) => this.selected.has(p.uid)));
   }
 
-  // The drop position for the current drag, snapped to the 1 pt grid.
+  // Shift-click: add a piece to the selection or take it out.
+  toggleSelected(uid) {
+    const next = new Set(this.selected);
+    if (!next.delete(uid)) next.add(uid);
+    this.select(next);
+  }
+
+  // The drop position for the current drag, snapped to the 1 pt grid: the new piece's top-left, or
+  // the top-left of the moved pieces' bounding box.
   dropPosition(client) {
     const d = this.drag;
     const pt = this.toLockup(client.clientX, client.clientY);
@@ -258,6 +285,56 @@ export class Canvas {
     return { x: Math.round(pt.x - d.grabX), y: Math.round(pt.y - d.grabY) };
   }
 
+  // Where a drag would drop: { moves, adds } for Design.applyChanges(), plus the snap joint if any.
+  newTarget(d) {
+    const candidate = { type: d.typeId, ...this.dropPosition(d.client), rotation: d.rotation };
+    const at = (dx, dy) => ({ ...candidate, x: candidate.x + dx, y: candidate.y + dy });
+    const snap = this.snapLines
+      ? findSnap(this.design, [candidate], new Set(), SNAP_RADIUS_PX / this.view.scale,
+        (dx, dy) => this.design.canOccupy(at(dx, dy)))
+      : null;
+    return { moves: [], adds: [at(snap?.dx ?? 0, snap?.dy ?? 0)], snapPoint: snap?.point };
+  }
+
+  moveTarget(d) {
+    const fill = this.autofillTarget(d);
+    if (fill) return fill;
+    const origin = this.dropPosition(d.client);
+    const at = (dx, dy) => d.members.map((m) => ({
+      uid: m.uid, type: m.type, x: origin.x + m.dx + dx, y: origin.y + m.dy + dy, rotation: m.rotation,
+    }));
+    const snap = this.snapLines
+      ? findSnap(this.design, at(0, 0), d.uids, SNAP_RADIUS_PX / this.view.scale,
+        (dx, dy) => this.design.canApply({ moves: at(dx, dy) }))
+      : null;
+    return { moves: at(snap?.dx ?? 0, snap?.dy ?? 0), adds: [], snapPoint: snap?.point };
+  }
+
+  // Straight auto-fill (spec 11): pulling the dragged pieces away from a join on their trailing edge
+  // lays straights behind them, with the drag locked to that axis. Null for an ordinary move.
+  autofillTarget(d) {
+    if (!this.autofill || !d.autofill || d.joins.length === 0) return null;
+    const pt = this.toLockup(d.client.clientX, d.client.clientY);
+    const mx = pt.x - d.startPt.x;
+    const my = pt.y - d.startPt.y;
+    if (mx === 0 && my === 0) return null;
+    const dir = Math.abs(mx) >= Math.abs(my) ? { x: Math.sign(mx), y: 0 } : { x: 0, y: Math.sign(my) };
+    const trailing = d.joins.filter((j) => j.nx === -dir.x && j.ny === -dir.y);
+    if (trailing.length === 0) return null;
+
+    const fill = fillRun(this.design, this.straights, Math.round(mx * dir.x + my * dir.y), trailing.length);
+    const runs = trailing.map((j) => layRun(this.design, fill.ids, j, dir));
+    const shiftX = runs[0].end.x - trailing[0].x;
+    const shiftY = runs[0].end.y - trailing[0].y;
+    return {
+      moves: d.members.map((m) => ({
+        uid: m.uid, type: m.type, x: d.origin.x + m.dx + shiftX, y: d.origin.y + m.dy + shiftY, rotation: m.rotation,
+      })),
+      adds: runs.flatMap((r) => r.placements),
+      run: { length: fill.length, limited: fill.limited },
+    };
+  }
+
   updateGhost() {
     const d = this.drag;
     if (!d.client || !this.isOverCanvas(d.client)) {
@@ -265,24 +342,20 @@ export class Canvas {
       this.layerGhost.replaceChildren();
       return;
     }
-    const ignoreUid = d.kind === 'move' ? d.uid : null;
-    let candidate = { type: d.typeId, ...this.dropPosition(d.client), rotation: d.rotation };
-    const snap = this.snapLines
-      ? findSnap(this.design, candidate, ignoreUid, SNAP_RADIUS_PX / this.view.scale)
-      : null;
-    if (snap) candidate = { ...candidate, x: snap.x, y: snap.y };
-    d.target = candidate;
-
-    const ok = this.design.canOccupy(candidate, ignoreUid);
-    const type = this.design.types.get(d.typeId);
-    const g = pieceGraphic(type);
-    g.classList.add('ghost');
-    g.classList.toggle('invalid', !ok);
-    g.setAttribute('transform', placementTransform(type, candidate.x, candidate.y, d.rotation));
-    const nodes = [g];
-    if (snap) {
+    d.target = d.kind === 'new' ? this.newTarget(d) : this.moveTarget(d);
+    const { moves, adds, snapPoint } = d.target;
+    const ok = this.design.canApply(d.target);
+    const nodes = [...moves, ...adds].map((p) => {
+      const type = this.design.types.get(p.type);
+      const g = pieceGraphic(type);
+      g.classList.add('ghost');
+      g.classList.toggle('invalid', !ok);
+      g.setAttribute('transform', placementTransform(type, p.x, p.y, p.rotation));
+      return g;
+    });
+    if (snapPoint) {
       nodes.push(svgEl('circle', {
-        class: 'snap-marker', cx: snap.point.x, cy: snap.point.y, r: 6 / this.view.scale,
+        class: 'snap-marker', cx: snapPoint.x, cy: snapPoint.y, r: 6 / this.view.scale,
       }));
     }
     this.layerGhost.replaceChildren(...nodes);
@@ -307,12 +380,19 @@ export class Canvas {
     const pieceEl = e.button === 0 ? e.target.closest('.placed') : null;
     const paperEl = e.button === 0 ? e.target.closest('.paper-hit') : null;
     const pt = this.toLockup(e.clientX, e.clientY);
-    if (pieceEl) {
-      const piece = this.design.get(Number(pieceEl.dataset.uid));
-      this.select(piece.uid);
+    if (e.button === 0 && e.shiftKey) {
+      if (pieceEl) this.toggleSelected(Number(pieceEl.dataset.uid));
+      else this.beginDrag({ kind: 'box', from: pt, moved: false }, e);
+    } else if (pieceEl) {
+      // Pressing a selected piece drags the whole selection (spec 10); otherwise just this piece.
+      const uid = Number(pieceEl.dataset.uid);
+      if (!this.selected.has(uid)) this.select([uid]);
+      const uids = new Set(this.selected);
+      const { box, members } = this.design.arrangement(uids);
       this.beginDrag({
-        kind: 'move', uid: piece.uid, typeId: piece.type, rotation: piece.rotation,
-        grabX: pt.x - piece.x, grabY: pt.y - piece.y, moved: false,
+        kind: 'move', uids, clickUid: uid, members, width: box.width, height: box.height,
+        origin: { x: box.x, y: box.y }, grabX: pt.x - box.x, grabY: pt.y - box.y, startPt: pt,
+        joins: outsideJoins(this.design, uids), autofill: true, moved: false,
       }, e);
     } else if (paperEl && this.design.paper) {
       const { paper } = this.design;
@@ -364,6 +444,11 @@ export class Canvas {
       this.renderPaper({ ...this.design.paper, ...d.target });
       return;
     }
+    if (d.kind === 'box') {
+      d.to = this.toLockup(e.clientX, e.clientY);
+      this.layerGhost.replaceChildren(svgEl('rect', { class: 'selection-box', ...rectBetween(d.from, d.to) }));
+      return;
+    }
     d.client = { clientX: e.clientX, clientY: e.clientY };
     this.updateGhost();
   }
@@ -381,38 +466,55 @@ export class Canvas {
     const dropped = commit ? d.target : null;
 
     if (d.kind === 'pan') {
-      if (!d.moved && commit) this.select(null);
+      if (!d.moved && commit) this.select([]);
     } else if (d.kind === 'paper') {
       if (dropped) this.design.setPaper({ ...this.design.paper, ...dropped });
+    } else if (d.kind === 'box') {
+      if (commit && d.to) {
+        const area = rectBetween(d.from, d.to);
+        const hit = this.design.pieces.filter((p) => rectsOverlap(area, this.design.rectOf(p)));
+        this.select([...this.selected, ...hit.map((p) => p.uid)]);
+      }
     } else if (d.kind === 'new' && dropped) {
-      const piece = this.design.place(d.typeId, dropped.x, dropped.y, dropped.rotation);
-      if (piece) this.select(piece.uid);
+      const [c] = dropped.adds;
+      const piece = this.design.place(c.type, c.x, c.y, c.rotation);
+      if (piece) this.select([piece.uid]);
       else this.onNotice("Can't place it there: it would overlap another piece.");
-    } else if (d.kind === 'move' && d.moved && dropped) {
-      if (!this.design.move(d.uid, dropped.x, dropped.y, dropped.rotation)) {
-        this.onNotice("Can't move it there: it would overlap another piece.");
+    } else if (d.kind === 'move' && !d.moved) {
+      if (commit) this.select([d.clickUid]); // a click on a selected piece selects just that one
+    } else if (d.kind === 'move' && dropped) {
+      if (!this.design.applyChanges(dropped)) {
+        this.onNotice(dropped.run
+          ? "Can't stretch it there: the run would overlap another piece."
+          : "Can't move it there: it would overlap another piece.");
+      } else if (dropped.run?.limited) {
+        this.onNotice(`Not enough straights left: the run stops at ${dropped.run.length} pt.`);
       }
     }
-    this.render(); // clears the lifted look if the piece went back
+    this.render(); // clears the lifted look if the pieces went back
   }
 
-  // Turns the piece being dragged 90° clockwise on screen, which in print view is anticlockwise on
-  // the metal. For a placed piece, the point you grabbed stays under the pointer.
+  // Turns the piece or pieces being dragged 90° clockwise on screen, which in print view is
+  // anticlockwise on the metal. For placed pieces, the point you grabbed stays under the pointer,
+  // and auto-fill (spec 11) is off for the rest of the drag.
   rotateDrag() {
     const d = this.drag;
-    if (!d || d.kind === 'pan' || d.kind === 'paper') return;
+    if (!d || d.kind === 'pan' || d.kind === 'paper' || d.kind === 'box') return;
     this.swallowContextMenu = true;
     const clockwise = !this.printView;
     if (d.kind === 'move') {
-      const fp = footprint(this.design.types.get(d.typeId), d.rotation);
-      [d.grabX, d.grabY] = clockwise ? [fp.height - d.grabY, d.grabX] : [d.grabY, fp.width - d.grabX];
+      [d.grabX, d.grabY] = clockwise ? [d.height - d.grabY, d.grabX] : [d.grabY, d.width - d.grabX];
+      d.members = turnArrangement(d.members, d.width, d.height, clockwise);
+      [d.width, d.height] = [d.height, d.width];
+      d.autofill = false;
       if (!d.moved) {
         d.moved = true;
         d.client = d.start;
         this.render();
       }
+    } else {
+      d.rotation = (d.rotation + (clockwise ? 90 : 270)) % 360;
     }
-    d.rotation = (d.rotation + (clockwise ? 90 : 270)) % 360;
     if (d.client) this.updateGhost();
   }
 
@@ -432,16 +534,16 @@ export class Canvas {
       this.rotateDrag();
       return;
     }
-    if (this.selectedUid === null) return;
+    if (this.selected.size === 0) return;
     // Clockwise on screen: anticlockwise on the metal when the view is mirrored.
-    if (!this.design.rotate(this.selectedUid, !this.printView)) {
+    if (!this.design.rotateGroup(this.selected, !this.printView)) {
       this.onNotice("Can't rotate it: it would overlap another piece.");
     }
   }
 
   deleteSelected() {
-    if (this.drag || this.selectedUid === null) return;
-    this.design.remove(this.selectedUid);
+    if (this.drag || this.selected.size === 0) return;
+    this.design.removeMany(this.selected);
   }
 
   onKeyDown(e) {
@@ -451,6 +553,8 @@ export class Canvas {
       this.rotateSelected();
     } else if (e.key === 's' || e.key === 'S') {
       this.setSnapLines(!this.snapLines);
+    } else if (e.key === 'f' || e.key === 'F') {
+      this.setAutofill(!this.autofill);
     } else if (e.key === 'p' || e.key === 'P') {
       this.setPrintView(!this.printView);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
@@ -461,7 +565,7 @@ export class Canvas {
         this.endDrag();
         this.render();
       } else {
-        this.select(null);
+        this.select([]);
       }
     }
   }

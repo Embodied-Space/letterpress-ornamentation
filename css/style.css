@@ -308,6 +308,7 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .info button:hover:not(:disabled) { border-color: var(--muted); }
 .info button:disabled { opacity: 0.45; cursor: default; }
 
+.selection-box { fill: var(--accent); fill-opacity: 0.08; stroke: var(--accent); stroke-width: 1px; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; pointer-events: none; }
 .snap-marker { fill: none; stroke: var(--accent); stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
 
 .palette-item { cursor: grab; touch-action: none; user-select: none; }

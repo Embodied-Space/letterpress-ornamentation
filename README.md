@@ -12,6 +12,8 @@ material.
 ## Features (v1, in progress)
 - Drag ornament pieces onto a canvas measured in points; they snap to a 1 pt grid and rotate in 90° steps
 - Right-click while dragging to rotate; optional "Snap lines" mode joins the double lines of neighboring pieces
+- Shift-click pieces, or shift-drag a box on empty canvas, to select several; drag, rotate or delete them together
+- Drag a piece (or a selection) straight out from the piece it's joined to, and straight rules fill the gap behind it. Toggle this with the "Auto-fill" button or `F`; rotating during the drag also turns it off for that drag
 - Pieces can't overlap, and you can't place more of a piece than you own
 - Automatic gap measurement: the empty space inside the form, split into horizontal strips and labeled in points
 - Lockup view (the form as it sits in the chase) and print view (the mirrored impression, lines only); switch with `P`

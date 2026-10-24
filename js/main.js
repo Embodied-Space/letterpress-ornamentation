@@ -1,6 +1,6 @@
 import { loadPieces } from './pieces.js';
 import { renderPalette, updatePaletteUsage } from './palette.js';
-import { Design } from './design.js';
+import { Design, boundingBox } from './design.js';
 import { Canvas } from './canvas.js';
 import { computeGaps } from './gaps.js';
 import { renderInfo } from './info.js';
@@ -45,6 +45,7 @@ async function start() {
   const deleteBtn = document.getElementById('btn-delete');
   const selectionInfo = document.getElementById('selection-info');
   const snapBtn = document.getElementById('btn-snap');
+  const autofillBtn = document.getElementById('btn-autofill');
   const lockupBtn = document.getElementById('btn-view-lockup');
   const printBtn = document.getElementById('btn-view-print');
   const nameEl = document.getElementById('design-name');
@@ -54,14 +55,23 @@ async function start() {
     onSnapChange(on) {
       snapBtn.setAttribute('aria-pressed', String(on));
     },
+    onAutofillChange(on) {
+      autofillBtn.setAttribute('aria-pressed', String(on));
+    },
     onViewChange(print) {
       lockupBtn.setAttribute('aria-pressed', String(!print));
       printBtn.setAttribute('aria-pressed', String(print));
     },
-    onSelectionChange(piece) {
-      rotateBtn.disabled = deleteBtn.disabled = piece === null;
-      selectionInfo.textContent = piece === null ? ''
-        : `${design.types.get(piece.type).name} at ${piece.x}, ${piece.y} pt · ${piece.rotation}°`;
+    onSelectionChange(selected) {
+      rotateBtn.disabled = deleteBtn.disabled = selected.length === 0;
+      if (selected.length <= 1) {
+        const [piece] = selected;
+        selectionInfo.textContent = piece === undefined ? ''
+          : `${design.types.get(piece.type).name} at ${piece.x}, ${piece.y} pt · ${piece.rotation}°`;
+      } else {
+        const box = boundingBox(selected.map((p) => design.rectOf(p)));
+        selectionInfo.textContent = `${selected.length} pieces · ${box.width} × ${box.height} pt`;
+      }
     },
   });
 
@@ -159,6 +169,7 @@ async function start() {
   rotateBtn.addEventListener('click', () => canvas.rotateSelected());
   deleteBtn.addEventListener('click', () => canvas.deleteSelected());
   snapBtn.addEventListener('click', () => canvas.setSnapLines(!canvas.snapLines));
+  autofillBtn.addEventListener('click', () => canvas.setAutofill(!canvas.autofill));
   lockupBtn.addEventListener('click', () => canvas.setPrintView(false));
   printBtn.addEventListener('click', () => canvas.setPrintView(true));
   document.getElementById('btn-zoom-in').addEventListener('click', () => canvas.zoom(1.25));
