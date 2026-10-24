@@ -14,6 +14,8 @@ material.
 - Right-click while dragging to rotate; optional "Snap lines" mode joins the double lines of neighboring pieces
 - Pieces can't overlap, and you can't place more of a piece than you own
 - Automatic gap measurement: the empty space inside the form, split into horizontal strips and labeled in points
+- Lockup view (the form as it sits in the chase) and print view (the mirrored impression, lines only); switch with `P`
+- Set a paper size (pt, picas, inches or cm) and drag the sheet's edge to place it around the form
 - Save designs in your browser; export and import them as JSON
 
 ## Planned

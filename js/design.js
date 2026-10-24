@@ -3,6 +3,9 @@
 
 export const ROTATIONS = [0, 90, 180, 270];
 
+// Units the paper size can be entered and shown in, as points per unit (spec 14).
+export const PAPER_UNITS = Object.freeze({ pt: 1, pc: 12, in: 72, cm: 72 / 2.54 });
+
 // The footprint (width × height in pt) of a piece type at a rotation.
 export function footprint(type, rotation) {
   return rotation % 180 === 0
@@ -29,6 +32,8 @@ export class Design {
   constructor(pieceTypes) {
     this.types = new Map(pieceTypes.map((t) => [t.id, t]));
     this.pieces = [];
+    // The sheet ({ width, height, x, y, unit }, whole pt, top-left in lockup coordinates), or null.
+    this.paper = null;
     this.nextUid = 1;
     this.listeners = new Set();
   }
@@ -80,14 +85,15 @@ export class Design {
     return this.update(uid, rotation === undefined ? { x, y } : { x, y, rotation });
   }
 
-  // Turns a piece 90° clockwise about its center. The offset uses Math.trunc, which is symmetric
-  // around zero, so turning back undoes it exactly and four turns return to the start.
-  rotate(uid) {
+  // Turns a piece 90° (clockwise on the metal, unless `clockwise` is false) about its center. The
+  // offset uses Math.trunc, which is symmetric around zero, so turning back undoes it exactly and
+  // four turns return to the start.
+  rotate(uid, clockwise = true) {
     const piece = this.get(uid);
     if (!piece) return false;
     const { width, height } = this.rectOf(piece);
     return this.update(uid, {
-      rotation: (piece.rotation + 90) % 360,
+      rotation: (piece.rotation + (clockwise ? 90 : 270)) % 360,
       x: piece.x + Math.trunc((width - height) / 2),
       y: piece.y + Math.trunc((height - width) / 2),
     });
@@ -97,13 +103,20 @@ export class Design {
   // inventory checks: a saved or imported design may break them, and is then shown and flagged
   // (see problems()) rather than refused. Pieces of unknown types can't be drawn; they're skipped
   // and returned.
-  load(pieces) {
+  load(pieces, paper = null) {
     const skipped = pieces.filter((p) => !this.types.has(p.type));
     this.pieces = pieces
       .filter((p) => this.types.has(p.type))
       .map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
+    this.paper = paper === null ? null : Object.freeze({ ...paper });
     this.changed();
     return skipped;
+  }
+
+  // Sets or moves the paper (spec 14), or removes it with null. It never affects the pieces.
+  setPaper(paper) {
+    this.paper = paper === null ? null : Object.freeze({ ...paper });
+    this.changed();
   }
 
   // Rule breaks that can only come from load(): piece types placed more than `count` times,

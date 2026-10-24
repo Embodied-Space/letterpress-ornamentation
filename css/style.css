@@ -18,6 +18,14 @@
   --gap-text: #1f5580;
   --error-bg: #fbe9e6;
   --error-text: #8a1c10;
+  --paper-line: #8a8170;
+  /* Print view (spec 13): what the impression looks like, so dark ink on paper in either theme. */
+  --paper: #fbf7ec;
+  --table: #d9d2c3;
+  --paper-edge: #b3aa97;
+  --print-ink: #1d1b18;
+  --print-outline: #6d675d;
+  --print-invalid: rgba(208, 38, 26, 0.22);
   --panel-width: 15rem;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light dark;
@@ -44,6 +52,11 @@
     --gap-text: #9fcbef;
     --error-bg: #3d1f1a;
     --error-text: #f2b3a6;
+    --paper-line: #8f887b;
+    --paper: #d8d1c1;
+    --table: #2e2b27;
+    --paper-edge: #8c8475;
+    --print-outline: #5a544b;
   }
 }
 
@@ -236,6 +249,64 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 .gap-item:hover { background: var(--bg); }
 .gap-where { font-size: 0.75rem; color: var(--muted); }
 #gap-count { font-weight: 400; }
+
+/* Paper (spec 14): an outline in lockup view, the sheet itself in print view. */
+.paper-sheet { fill: var(--paper); }
+.canvas:not(.print) #layer-sheet { display: none; }
+.paper-edge { fill: none; stroke: var(--paper-line); stroke-width: 1px; vector-effect: non-scaling-stroke; pointer-events: none; }
+.paper-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10px;
+  vector-effect: non-scaling-stroke;
+  pointer-events: stroke;
+  cursor: move;
+}
+
+/* Print view (spec 13): only the inked lines, on paper. Bodies stay as invisible hit areas and show
+   their outline on hover, when selected, or when flagged as a problem. */
+.canvas.print { background: var(--paper); }
+.canvas.print.has-paper { background: var(--table); }
+.canvas.print .paper-edge { stroke: var(--paper-edge); }
+.canvas.print .grid, .canvas.print #layer-gaps { display: none; }
+.canvas.print.dragging .grid { display: inline; }
+.canvas.print .piece-lines { fill: var(--print-ink); }
+.canvas.print .piece-body { fill: transparent; stroke: none; }
+.canvas.print .placed:hover .piece-body,
+.canvas.print .ghost .piece-body { stroke: var(--print-outline); stroke-width: 1px; }
+.canvas.print .placed.selected .piece-body { stroke: var(--accent); stroke-width: 2px; }
+.canvas.print .placed.overlapping .piece-body { stroke: var(--danger); stroke-width: 2px; }
+.canvas.print .ghost.invalid .piece-body { fill: var(--print-invalid); stroke: var(--danger); }
+
+.view-toggle { display: flex; }
+.view-toggle button:first-child { border-radius: 4px 0 0 4px; }
+.view-toggle button:last-child { border-radius: 0 4px 4px 0; margin-left: -1px; }
+
+.paper-size { display: flex; align-items: center; gap: 0.3rem; font-size: 0.85rem; }
+.paper-size input, .paper-size select {
+  min-width: 0;
+  font: inherit;
+  padding: 0.2rem 0.3rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.paper-size input { width: 4.2rem; flex: 1; }
+.paper-note { font-size: 0.75rem; margin: 0.4rem 0 0; }
+.paper-actions { display: flex; gap: 0.4rem; margin-top: 0.5rem; }
+.info button {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.6rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.info button:hover:not(:disabled) { border-color: var(--muted); }
+.info button:disabled { opacity: 0.45; cursor: default; }
 
 .snap-marker { fill: none; stroke: var(--accent); stroke-width: 2px; vector-effect: non-scaling-stroke; pointer-events: none; }
 

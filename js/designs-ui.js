@@ -98,10 +98,12 @@ export function setupDesignsUI({ getCurrent, setName, loadDesign, notify }) {
 
   // Clearing starts a new, untitled design, so a later save can't overwrite the named one by accident.
   $('btn-clear').addEventListener('click', () => {
-    const count = getCurrent().pieces.length;
-    if (count === 0) return;
+    const current = getCurrent();
+    const count = current.pieces.length;
+    if (count === 0 && !current.paper) return;
     const warning = hasUnsavedWork() ? " It has changes that aren't saved under a name." : '';
-    if (!window.confirm(`Clear the canvas and remove all ${count} pieces?${warning}`)) return;
+    const what = count === 0 ? 'the paper' : `all ${count} pieces${current.paper ? ' and the paper' : ''}`;
+    if (!window.confirm(`Clear the canvas and remove ${what}?${warning}`)) return;
     loadDesign({ version: FORMAT_VERSION, name: DEFAULT_NAME, pieces: [] });
   });
 

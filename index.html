@@ -47,10 +47,14 @@
 
     <section class="canvas-wrap" aria-label="Layout canvas">
       <div class="toolbar" role="toolbar" aria-label="Canvas tools">
-        <button type="button" id="btn-rotate" disabled title="Rotate 90° (R)">Rotate</button>
+        <button type="button" id="btn-rotate" disabled title="Rotate 90° clockwise (R)">Rotate</button>
         <button type="button" id="btn-delete" disabled title="Delete (Del)">Delete</button>
         <span id="selection-info" class="selection-info"></span>
         <span class="toolbar-spacer"></span>
+        <div class="view-toggle" role="group" aria-label="View" title="Switch between lockup and print view (P)">
+          <button type="button" id="btn-view-lockup" aria-pressed="true">Lockup</button>
+          <button type="button" id="btn-view-print" aria-pressed="false">Print</button>
+        </div>
         <button type="button" id="btn-snap" aria-pressed="true" title="Snap lines together while dragging (S)">Snap lines</button>
         <button type="button" id="btn-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
         <button type="button" id="btn-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
@@ -65,11 +69,18 @@
             <path d="M12 0 H0 V12" class="grid-line" />
           </pattern>
         </defs>
-        <rect id="grid-fine" x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pt)" />
-        <rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pica)" />
-        <g id="layer-gaps"></g>
-        <g id="layer-pieces"></g>
-        <g id="layer-ghost"></g>
+        <!-- Everything in a .world group is drawn in lockup coordinates; print view mirrors it (spec 13). -->
+        <g id="layer-sheet" class="world"></g>
+        <g class="grid">
+          <rect id="grid-fine" x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pt)" />
+          <rect x="-10000" y="-10000" width="20000" height="20000" fill="url(#grid-pica)" />
+        </g>
+        <g class="world">
+          <g id="layer-paper"></g>
+          <g id="layer-gaps"></g>
+          <g id="layer-pieces"></g>
+          <g id="layer-ghost"></g>
+        </g>
       </svg>
       <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
     </section>
@@ -77,6 +88,23 @@
     <aside class="panel info" aria-labelledby="info-heading">
       <h2 id="info-heading">Form</h2>
       <p id="form-size" class="muted">No pieces placed.</p>
+      <h2>Paper</h2>
+      <div class="paper-size">
+        <input id="paper-width" type="number" min="0" step="any" aria-label="Paper width" placeholder="width">
+        <span aria-hidden="true">×</span>
+        <input id="paper-height" type="number" min="0" step="any" aria-label="Paper height" placeholder="height">
+        <select id="paper-unit" aria-label="Paper size unit">
+          <option value="pt">pt</option>
+          <option value="pc">picas</option>
+          <option value="in" selected>in</option>
+          <option value="cm">cm</option>
+        </select>
+      </div>
+      <p id="paper-note" class="paper-note muted"></p>
+      <div class="paper-actions">
+        <button type="button" id="paper-centre" title="Centre the paper on the form">Centre</button>
+        <button type="button" id="paper-remove" title="Go back to no paper">Remove</button>
+      </div>
       <h2>Gaps <span id="gap-count"></span></h2>
       <ol id="gap-list" class="gap-list"></ol>
     </aside>

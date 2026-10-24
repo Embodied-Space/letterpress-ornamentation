@@ -8,6 +8,7 @@ import {
   serializeDesign, loadCurrent, saveCurrent, DEFAULT_NAME,
 } from './storage.js';
 import { setupDesignsUI } from './designs-ui.js';
+import { setupPaperUI } from './paper-ui.js';
 
 const NOTICE_MS = 2500;
 const LONG_NOTICE_MS = 7000;
@@ -44,12 +45,18 @@ async function start() {
   const deleteBtn = document.getElementById('btn-delete');
   const selectionInfo = document.getElementById('selection-info');
   const snapBtn = document.getElementById('btn-snap');
+  const lockupBtn = document.getElementById('btn-view-lockup');
+  const printBtn = document.getElementById('btn-view-print');
   const nameEl = document.getElementById('design-name');
 
   const canvas = new Canvas(document.getElementById('canvas'), design, {
     onNotice: showNotice,
     onSnapChange(on) {
       snapBtn.setAttribute('aria-pressed', String(on));
+    },
+    onViewChange(print) {
+      lockupBtn.setAttribute('aria-pressed', String(!print));
+      printBtn.setAttribute('aria-pressed', String(print));
     },
     onSelectionChange(piece) {
       rotateBtn.disabled = deleteBtn.disabled = piece === null;
@@ -75,6 +82,17 @@ async function start() {
   };
   updateGaps();
   design.subscribe(updateGaps);
+
+  setupPaperUI({
+    design,
+    canvas,
+    widthEl: document.getElementById('paper-width'),
+    heightEl: document.getElementById('paper-height'),
+    unitEl: document.getElementById('paper-unit'),
+    noteEl: document.getElementById('paper-note'),
+    centreBtn: document.getElementById('paper-centre'),
+    removeBtn: document.getElementById('paper-remove'),
+  });
 
   // --- Save / load (spec 06) ---------------------------------------------
 
@@ -104,7 +122,7 @@ async function start() {
   const loadDesign = (data) => {
     currentName = data.name;
     nameEl.textContent = data.name;
-    const skipped = design.load(data.pieces);
+    const skipped = design.load(data.pieces, data.paper ?? null);
     canvas.fit();
 
     const { overLimit, overlapping } = design.problems();
@@ -141,6 +159,8 @@ async function start() {
   rotateBtn.addEventListener('click', () => canvas.rotateSelected());
   deleteBtn.addEventListener('click', () => canvas.deleteSelected());
   snapBtn.addEventListener('click', () => canvas.setSnapLines(!canvas.snapLines));
+  lockupBtn.addEventListener('click', () => canvas.setPrintView(false));
+  printBtn.addEventListener('click', () => canvas.setPrintView(true));
   document.getElementById('btn-zoom-in').addEventListener('click', () => canvas.zoom(1.25));
   document.getElementById('btn-zoom-out').addEventListener('click', () => canvas.zoom(0.8));
   document.getElementById('btn-fit').addEventListener('click', () => canvas.fit());

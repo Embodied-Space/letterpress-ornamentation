@@ -1,7 +1,7 @@
 // Saving and loading designs (spec 06): the design file format, localStorage, and JSON export.
 // localStorage calls can throw (private mode, quota); callers catch and show a notice.
 
-import { ROTATIONS } from './design.js';
+import { ROTATIONS, PAPER_UNITS } from './design.js';
 
 export const FORMAT_VERSION = 1;
 export const DEFAULT_NAME = 'Untitled';
@@ -20,8 +20,11 @@ export function serializeDesign(name, design) {
     version: FORMAT_VERSION,
     name,
     pieces: design.pieces.map(({ type, x, y, rotation }) => ({ type, x, y, rotation })),
+    ...(design.paper && { paper: paperData(design.paper) }),
   };
 }
+
+const paperData = ({ width, height, x, y, unit }) => ({ width, height, x, y, unit });
 
 // Checks the shape of a design file. Rule breaks (overlaps, too many of a piece, unknown piece ids)
 // are not format errors: those designs still load, flagged (see Design.load).
@@ -40,7 +43,16 @@ export function parseDesign(data) {
     }
     return { type: p.type, x: p.x, y: p.y, rotation: p.rotation };
   });
-  return { version: FORMAT_VERSION, name: data.name, pieces };
+  // The paper is optional (spec 14): files saved before it existed have none.
+  const p = data.paper;
+  if (p !== undefined && (p === null || typeof p !== 'object'
+    || !Number.isInteger(p.width) || p.width <= 0 || !Number.isInteger(p.height) || p.height <= 0
+    || !Number.isInteger(p.x) || !Number.isInteger(p.y) || !Object.hasOwn(PAPER_UNITS, p.unit))) {
+    fail(`The "paper" needs a whole-point "width", "height", "x" and "y", and a "unit" of ${Object.keys(PAPER_UNITS).join(', ')}.`);
+  }
+  return {
+    version: FORMAT_VERSION, name: data.name, pieces, ...(p !== undefined && { paper: paperData(p) }),
+  };
 }
 
 function readJSON(key) {

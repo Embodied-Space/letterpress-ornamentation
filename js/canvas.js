@@ -1,5 +1,9 @@
 // The SVG canvas: zoom/pan, drawing placed pieces, and placing/moving/rotating/deleting them (spec 03).
 // 1 SVG unit = 1 pt. All rules about where a piece may go live in Design; this only asks it.
+//
+// Print view (spec 13) mirrors the .world groups left to right. The view (viewBox, zoom, pan) is in
+// screen-side "view" coordinates; everything else works in lockup coordinates, which toLockup()
+// converts pointer positions into, so editing behaves the same in both views.
 
 import { svgEl, pieceGraphic, placementTransform } from './svg.js';
 import { footprint, boundingBox } from './design.js';
@@ -17,14 +21,21 @@ const FIT_MARGIN = 24;
 const clampScale = (s) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
 
 export class Canvas {
-  constructor(svg, design, { onSelectionChange = () => {}, onNotice = () => {}, onSnapChange = () => {} } = {}) {
+  constructor(svg, design, {
+    onSelectionChange = () => {}, onNotice = () => {}, onSnapChange = () => {}, onViewChange = () => {},
+  } = {}) {
     this.svg = svg;
     this.design = design;
     this.onSelectionChange = onSelectionChange;
     this.onNotice = onNotice;
     this.onSnapChange = onSnapChange;
+    this.onViewChange = onViewChange;
     this.snapLines = true;
+    this.printView = false;
     this.swallowContextMenu = false;
+    this.worlds = svg.querySelectorAll('.world');
+    this.layerSheet = svg.querySelector('#layer-sheet');
+    this.layerPaper = svg.querySelector('#layer-paper');
     this.layerGaps = svg.querySelector('#layer-gaps');
     this.gaps = [];
     this.layerPieces = svg.querySelector('#layer-pieces');
@@ -55,12 +66,26 @@ export class Canvas {
 
     this.render();
     this.onSnapChange(this.snapLines);
+    this.onViewChange(this.printView);
   }
 
   setSnapLines(on) {
     this.snapLines = on;
     this.onSnapChange(on);
     if (this.drag?.client) this.updateGhost();
+  }
+
+  // Switches between lockup view and print view (spec 13). The visible area is mirrored too, so the
+  // form stays where it was on screen. Not while dragging: the drag was started in the other view.
+  setPrintView(on) {
+    if (on === this.printView || this.drag) return;
+    const { width } = this.svg.getBoundingClientRect();
+    this.view = { ...this.view, x: -(this.view.x + width / this.view.scale) };
+    this.printView = on;
+    for (const g of this.worlds) g.setAttribute('transform', on ? 'scale(-1 1)' : '');
+    this.svg.classList.toggle('print', on);
+    this.applyView();
+    this.onViewChange(on);
   }
 
   // --- View --------------------------------------------------------------
@@ -71,6 +96,18 @@ export class Canvas {
       x: this.view.x + (clientX - rect.left) / this.view.scale,
       y: this.view.y + (clientY - rect.top) / this.view.scale,
     };
+  }
+
+  // The lockup coordinates under a screen position.
+  toLockup(clientX, clientY) {
+    const pt = this.toPoint(clientX, clientY);
+    return this.printView ? { x: -pt.x, y: pt.y } : pt;
+  }
+
+  // The lockup coordinates at the middle of the visible canvas.
+  visibleCenter() {
+    const rect = this.svg.getBoundingClientRect();
+    return this.toLockup(rect.left + rect.width / 2, rect.top + rect.height / 2);
   }
 
   isOverCanvas({ clientX, clientY }) {
@@ -88,11 +125,14 @@ export class Canvas {
     this.renderGaps(); // labels keep a constant screen size
   }
 
-  // Zoom to show every placed piece (or a default area when there are none).
+  // Zoom to show every placed piece and the paper (or a default area when there are none).
   fit() {
     const { width, height } = this.svg.getBoundingClientRect();
     if (!width || !height) return;
-    const area = boundingBox(this.design.pieces.map((p) => this.design.rectOf(p))) ?? DEFAULT_AREA;
+    const rects = this.design.pieces.map((p) => this.design.rectOf(p));
+    if (this.design.paper) rects.push(this.design.paper);
+    let area = boundingBox(rects) ?? DEFAULT_AREA;
+    if (this.printView) area = { ...area, x: -(area.x + area.width) };
     const w = area.width + 2 * FIT_MARGIN;
     const h = area.height + 2 * FIT_MARGIN;
     const scale = clampScale(Math.min(width / w, height / h));
@@ -162,7 +202,26 @@ export class Canvas {
     }
   }
 
+  // The paper (spec 14): a sheet filled in print view, below the grid, and its edge above the grid,
+  // with a wider invisible edge to grab it by.
+  renderPaper(paper) {
+    this.svg.classList.toggle('has-paper', paper !== null);
+    if (!paper) {
+      this.layerSheet.replaceChildren();
+      this.layerPaper.replaceChildren();
+      return;
+    }
+    const rect = { x: paper.x, y: paper.y, width: paper.width, height: paper.height };
+    this.layerSheet.replaceChildren(svgEl('rect', { class: 'paper-sheet', ...rect }));
+    const hit = svgEl('rect', { class: 'paper-hit', ...rect });
+    const title = svgEl('title');
+    title.textContent = 'Paper: drag its edge to move it';
+    hit.append(title);
+    this.layerPaper.replaceChildren(svgEl('rect', { class: 'paper-edge', ...rect }), hit);
+  }
+
   render() {
+    this.renderPaper(this.design.paper);
     const lifted = this.drag?.kind === 'move' && this.drag.moved ? this.drag.uid : null;
     const { overlapping } = this.design.problems(); // only possible after loading a saved design
     this.layerPieces.replaceChildren(...this.design.pieces.map((p) => {
@@ -191,7 +250,7 @@ export class Canvas {
   // The drop position for the current drag, snapped to the 1 pt grid.
   dropPosition(client) {
     const d = this.drag;
-    const pt = this.toPoint(client.clientX, client.clientY);
+    const pt = this.toLockup(client.clientX, client.clientY);
     if (d.kind === 'new') {
       const fp = footprint(this.design.types.get(d.typeId), d.rotation);
       return { x: Math.round(pt.x - fp.width / 2), y: Math.round(pt.y - fp.height / 2) };
@@ -246,14 +305,18 @@ export class Canvas {
     if (this.drag || (e.button !== 0 && e.button !== 1)) return;
     e.preventDefault();
     const pieceEl = e.button === 0 ? e.target.closest('.placed') : null;
+    const paperEl = e.button === 0 ? e.target.closest('.paper-hit') : null;
+    const pt = this.toLockup(e.clientX, e.clientY);
     if (pieceEl) {
       const piece = this.design.get(Number(pieceEl.dataset.uid));
       this.select(piece.uid);
-      const pt = this.toPoint(e.clientX, e.clientY);
       this.beginDrag({
         kind: 'move', uid: piece.uid, typeId: piece.type, rotation: piece.rotation,
         grabX: pt.x - piece.x, grabY: pt.y - piece.y, moved: false,
       }, e);
+    } else if (paperEl && this.design.paper) {
+      const { paper } = this.design;
+      this.beginDrag({ kind: 'paper', grabX: pt.x - paper.x, grabY: pt.y - paper.y, moved: false }, e);
     } else {
       this.beginDrag({ kind: 'pan', view: { ...this.view }, moved: false }, e);
     }
@@ -295,6 +358,12 @@ export class Canvas {
       this.applyView();
       return;
     }
+    if (d.kind === 'paper') {
+      const pt = this.toLockup(e.clientX, e.clientY);
+      d.target = { x: Math.round(pt.x - d.grabX), y: Math.round(pt.y - d.grabY) };
+      this.renderPaper({ ...this.design.paper, ...d.target });
+      return;
+    }
     d.client = { clientX: e.clientX, clientY: e.clientY };
     this.updateGhost();
   }
@@ -313,6 +382,8 @@ export class Canvas {
 
     if (d.kind === 'pan') {
       if (!d.moved && commit) this.select(null);
+    } else if (d.kind === 'paper') {
+      if (dropped) this.design.setPaper({ ...this.design.paper, ...dropped });
     } else if (d.kind === 'new' && dropped) {
       const piece = this.design.place(d.typeId, dropped.x, dropped.y, dropped.rotation);
       if (piece) this.select(piece.uid);
@@ -325,22 +396,23 @@ export class Canvas {
     this.render(); // clears the lifted look if the piece went back
   }
 
-  // Turns the piece being dragged 90° clockwise. For a placed piece, the point you grabbed
-  // stays under the pointer.
+  // Turns the piece being dragged 90° clockwise on screen, which in print view is anticlockwise on
+  // the metal. For a placed piece, the point you grabbed stays under the pointer.
   rotateDrag() {
     const d = this.drag;
-    if (!d || d.kind === 'pan') return;
+    if (!d || d.kind === 'pan' || d.kind === 'paper') return;
     this.swallowContextMenu = true;
+    const clockwise = !this.printView;
     if (d.kind === 'move') {
       const fp = footprint(this.design.types.get(d.typeId), d.rotation);
-      [d.grabX, d.grabY] = [fp.height - d.grabY, d.grabX];
+      [d.grabX, d.grabY] = clockwise ? [fp.height - d.grabY, d.grabX] : [d.grabY, fp.width - d.grabX];
       if (!d.moved) {
         d.moved = true;
         d.client = d.start;
         this.render();
       }
     }
-    d.rotation = (d.rotation + 90) % 360;
+    d.rotation = (d.rotation + (clockwise ? 90 : 270)) % 360;
     if (d.client) this.updateGhost();
   }
 
@@ -361,7 +433,10 @@ export class Canvas {
       return;
     }
     if (this.selectedUid === null) return;
-    if (!this.design.rotate(this.selectedUid)) this.onNotice("Can't rotate it: it would overlap another piece.");
+    // Clockwise on screen: anticlockwise on the metal when the view is mirrored.
+    if (!this.design.rotate(this.selectedUid, !this.printView)) {
+      this.onNotice("Can't rotate it: it would overlap another piece.");
+    }
   }
 
   deleteSelected() {
@@ -376,6 +451,8 @@ export class Canvas {
       this.rotateSelected();
     } else if (e.key === 's' || e.key === 'S') {
       this.setSnapLines(!this.snapLines);
+    } else if (e.key === 'p' || e.key === 'P') {
+      this.setPrintView(!this.printView);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
       e.preventDefault();
       this.deleteSelected();
