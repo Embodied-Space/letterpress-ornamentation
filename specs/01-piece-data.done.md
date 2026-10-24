@@ -13,14 +13,21 @@ Describe every ornament piece in a single data file, so the canvas, inventory an
   - `lines`: the double-line artwork as SVG path data in piece-local point coordinates (origin top-left)
   - `connectors`: where the double line meets the edge of the body: `{ "edge": "top|right|bottom|left", "offset": <pt from the edge's start> }`
   - `placeholder`: `true` until the real measurements have been entered
-- Placeholder data for the 4 known piece types:
+- The 19 piece types from the hand count of 2026-10-23 (sizes and counts are real; see
+  `references/measurements/piece-inventory-2026-10-23.md` for what is still guessed):
 
-| id | Size | Size (pt) | Count | Notes |
-|---|---|---|---|---|
-| `corner-block` | 1" × 1" | 72 × 72 | 4 | corner |
-| `corner-small` | 2 × 3 pica | 24 × 36 | 5 | corner; orientation of the 2×3 still to confirm |
-| `offset` | 4 × 1 pica | 48 × 12 | 6 | moves the line 8 pt sideways |
-| `straight` | 4 pica × 4 pt | 48 × 4 | 30 | straight double-line rule |
+| id | Size (pt) | Count | Notes |
+|---|---|---|---|
+| `line-6`, `line-12`, `line-24`, `line-42`, `line-48` | w × 6 | 3, 20, 1, 1, 75 | straight double line |
+| `offset-48` | 48 × 12 | 5 | moves the line sideways |
+| `offset-18-gentle-z`, `-gentle-s` | 18 × 18 | 3, 3 | gentle (less swoopy) offset; s is the mirror of z |
+| `offset-18-strong-z`, `-strong-s` | 18 × 18 | 4, 2 | strong (swoopier) offset, same exits as gentle; s is the mirror of z |
+| `u-turn` | 12 × 12 | 4 | turns the line back |
+| `terminator-p`, `terminator-q` | 12 × 12 | 4, 3 | line end; q is the mirror of p |
+| `quarter-turn` | 12 × 12 | 7 | quarter circle |
+| `corner-5` | 24 × 24 | 2 | L corner |
+| `corner-4`, `corner-3` | 24 × 36 | 2, 1 | L corner; 3 is the mirror of 4 |
+| `corner-11`, `corner-10` | 48 × 48 | 1, 3 | L corner; 10 is the mirror of 11 |
 
 ## Out of scope
 - Spacing material (see 08).
@@ -36,8 +43,7 @@ Describe every ornament piece in a single data file, so the canvas, inventory an
 
 ## Open questions
 - Exact line thickness, the gap between the two lines, and where the line sits within each body (needed for 07).
-- Is the 2×3 pica corner 2 wide × 3 tall, and which way does it turn?
-- For the offset piece, where does the line enter and leave, relative to the body?
+- Connector positions marked "guessed" in the 2026-10-23 inventory note.
 
 ## Acceptance criteria
 - `data/pieces.json` loads and validates on page start, and an error is shown if a required field is missing.
