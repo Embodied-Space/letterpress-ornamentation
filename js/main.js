@@ -166,6 +166,16 @@ async function start() {
 
   // --- Toolbar -----------------------------------------------------------
 
+  const undoBtn = document.getElementById('btn-undo');
+  const redoBtn = document.getElementById('btn-redo');
+  const updateHistory = () => {
+    undoBtn.disabled = !design.canUndo;
+    redoBtn.disabled = !design.canRedo;
+  };
+  updateHistory();
+  design.subscribe(updateHistory);
+  undoBtn.addEventListener('click', () => canvas.undo());
+  redoBtn.addEventListener('click', () => canvas.redo());
   rotateBtn.addEventListener('click', () => canvas.rotateSelected());
   deleteBtn.addEventListener('click', () => canvas.deleteSelected());
   snapBtn.addEventListener('click', () => canvas.setSnapLines(!canvas.snapLines));

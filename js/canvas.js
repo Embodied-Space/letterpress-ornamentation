@@ -541,6 +541,15 @@ export class Canvas {
     }
   }
 
+  // Undo and redo (spec 15) wait until a drag is over.
+  undo() {
+    if (!this.drag) this.design.undo();
+  }
+
+  redo() {
+    if (!this.drag) this.design.redo();
+  }
+
   deleteSelected() {
     if (this.drag || this.selected.size === 0) return;
     this.design.removeMany(this.selected);
@@ -548,6 +557,15 @@ export class Canvas {
 
   onKeyDown(e) {
     if (e.target.closest?.('input, textarea, select, [contenteditable], dialog')) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+      const key = e.key.toLowerCase();
+      if (key === 'z' || key === 'y') {
+        e.preventDefault();
+        if (key === 'z' && !e.shiftKey) this.undo();
+        else this.redo();
+      }
+      return;
+    }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'r' || e.key === 'R') {
       this.rotateSelected();

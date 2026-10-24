@@ -3,6 +3,10 @@
 
 export const ROTATIONS = [0, 90, 180, 270];
 
+const HISTORY_LIMIT = 200; // undo steps kept (spec 15)
+
+const stateKey = ({ pieces, paper }) => JSON.stringify([pieces, paper]);
+
 // Units the paper size can be entered and shown in, as points per unit (spec 14).
 export const PAPER_UNITS = Object.freeze({ pt: 1, pc: 12, in: 72, cm: 72 / 2.54 });
 
@@ -50,6 +54,41 @@ export class Design {
     this.paper = null;
     this.nextUid = 1;
     this.listeners = new Set();
+    // Earlier and undone states ({ pieces, paper }) for undo and redo (spec 15), oldest first.
+    this.past = [];
+    this.future = [];
+  }
+
+  get canUndo() { return this.past.length > 0; }
+
+  get canRedo() { return this.future.length > 0; }
+
+  undo() {
+    if (!this.canUndo) return false;
+    this.future.push({ pieces: this.pieces, paper: this.paper });
+    ({ pieces: this.pieces, paper: this.paper } = this.past.pop());
+    this.changed();
+    return true;
+  }
+
+  redo() {
+    if (!this.canRedo) return false;
+    this.past.push({ pieces: this.pieces, paper: this.paper });
+    ({ pieces: this.pieces, paper: this.paper } = this.future.pop());
+    this.changed();
+    return true;
+  }
+
+  // Every edit goes through here, so it can be undone. An edit that changes nothing isn't a step.
+  commit(pieces, paper = this.paper) {
+    const before = { pieces: this.pieces, paper: this.paper };
+    this.pieces = pieces;
+    this.paper = paper;
+    if (stateKey(before) !== stateKey(this)) {
+      this.past = [...this.past.slice(1 - HISTORY_LIMIT), before];
+      this.future = [];
+    }
+    this.changed();
   }
 
   subscribe(fn) {
@@ -116,11 +155,10 @@ export class Design {
     if (!this.canApply({ moves, adds })) return false;
     const moved = new Map(moves.map(({ uid, x, y, rotation }) => [uid, { x, y, rotation }]));
     const added = adds.map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
-    this.pieces = [
+    this.commit([
       ...this.pieces.map((p) => (moved.has(p.uid) ? Object.freeze({ ...p, ...moved.get(p.uid) }) : p)),
       ...added,
-    ];
-    this.changed();
+    ]);
     return true;
   }
 
@@ -139,8 +177,7 @@ export class Design {
     const candidate = { type: typeId, x, y, rotation };
     if (!this.hasSpare(typeId) || !this.canOccupy(candidate)) return null;
     const piece = Object.freeze({ uid: this.nextUid++, ...candidate });
-    this.pieces = [...this.pieces, piece];
-    this.changed();
+    this.commit([...this.pieces, piece]);
     return piece;
   }
 
@@ -178,14 +215,15 @@ export class Design {
       .filter((p) => this.types.has(p.type))
       .map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
     this.paper = paper === null ? null : Object.freeze({ ...paper });
+    this.past = []; // a loaded design starts a fresh history (spec 15)
+    this.future = [];
     this.changed();
     return skipped;
   }
 
   // Sets or moves the paper (spec 14), or removes it with null. It never affects the pieces.
   setPaper(paper) {
-    this.paper = paper === null ? null : Object.freeze({ ...paper });
-    this.changed();
+    this.commit(this.pieces, paper === null ? null : Object.freeze({ ...paper }));
   }
 
   // Rule breaks that can only come from load(): piece types placed more than `count` times,
@@ -209,16 +247,14 @@ export class Design {
 
   remove(uid) {
     if (!this.get(uid)) return false;
-    this.pieces = this.pieces.filter((p) => p.uid !== uid);
-    this.changed();
+    this.commit(this.pieces.filter((p) => p.uid !== uid));
     return true;
   }
 
   removeMany(uids) {
     const gone = new Set(uids);
     if (!this.pieces.some((p) => gone.has(p.uid))) return false;
-    this.pieces = this.pieces.filter((p) => !gone.has(p.uid));
-    this.changed();
+    this.commit(this.pieces.filter((p) => !gone.has(p.uid)));
     return true;
   }
 
@@ -227,8 +263,7 @@ export class Design {
     if (!old) return false;
     const next = Object.freeze({ ...old, ...changes });
     if (!this.canOccupy(next, uid)) return false;
-    this.pieces = this.pieces.map((p) => (p.uid === uid ? next : p));
-    this.changed();
+    this.commit(this.pieces.map((p) => (p.uid === uid ? next : p)));
     return true;
   }
 
