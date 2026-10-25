@@ -1,0 +1,32 @@
+[
+  {
+    "id": "roman",
+    "name": "Roman (book face)",
+    "charWidth": 0.45,
+    "note": "Rough default: a Caslon or Garamond weight roman in upper and lower case."
+  },
+  {
+    "id": "gothic",
+    "name": "Gothic (sans serif)",
+    "charWidth": 0.5,
+    "note": "Rough default: a Franklin or News Gothic weight sans in upper and lower case."
+  },
+  {
+    "id": "condensed",
+    "name": "Condensed",
+    "charWidth": 0.38,
+    "note": "Rough default for a condensed gothic or roman."
+  },
+  {
+    "id": "extended",
+    "name": "Extended",
+    "charWidth": 0.65,
+    "note": "Rough default for an extended (wide) gothic or copperplate."
+  },
+  {
+    "id": "typewriter",
+    "name": "Typewriter (monospaced)",
+    "charWidth": 0.6,
+    "note": "Most typewriter faces set every character, including the space, on 0.6 em."
+  }
+]

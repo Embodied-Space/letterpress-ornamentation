@@ -33,6 +33,10 @@ The `lines` artwork is generated: edit the traced points in `references/code/pie
 rewrites `lines` in `data/pieces.json`). Set `"placeholder": false` on a piece once its real measurements are in. Put the photos and
 measurement notes you worked from in `references/`.
 
+## Adding type styles
+Text placeholders (spec 12) estimate a line's width from `data/type-styles.json`. To add a font you own,
+measure it as described in `data/type-styles.md` and add an entry.
+
 ## Working with specs
 - Specs live in `specs/` as `<index>-<title>.<idea|defined|done>.md`.
 - Move a spec through its stages by renaming the file: `idea` → `defined` (decisions confirmed) → `done` (built).

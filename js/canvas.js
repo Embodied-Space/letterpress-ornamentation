@@ -5,16 +5,19 @@
 // screen-side "view" coordinates; everything else works in lockup coordinates, which toLockup()
 // converts pointer positions into, so editing behaves the same in both views.
 
-import { svgEl, pieceGraphic, placementTransform } from './svg.js';
+import { svgEl, graphicFor, placementTransform } from './svg.js';
 import {
   footprint, boundingBox, rectsOverlap, turnArrangement,
 } from './design.js';
 import { findSnap, outsideJoins, mirroredRotation } from './connectors.js';
 import { straightTypes, fillRun, layRun } from './autofill.js';
+import { TEXT_TYPE } from './text.js';
 
 const DRAG_THRESHOLD_PX = 3;
 const SNAP_RADIUS_PX = 10; // how close (on screen) line ends must be to snap together
 const GAP_LABEL_PX = 11;
+const TEXT_LABEL_PX = 10;
+const DOUBLE_CLICK_MS = 400;
 const MIN_SCALE = 0.25; // screen px per pt
 const MAX_SCALE = 40;
 const FINE_GRID_MIN_SCALE = 6; // show the 1 pt grid from this zoom up
@@ -31,7 +34,7 @@ const rectBetween = (a, b) => ({
 export class Canvas {
   constructor(svg, design, {
     onSelectionChange = () => {}, onNotice = () => {}, onSnapChange = () => {}, onAutofillChange = () => {},
-    onViewChange = () => {},
+    onViewChange = () => {}, onEditText = () => {},
   } = {}) {
     this.svg = svg;
     this.design = design;
@@ -40,6 +43,8 @@ export class Canvas {
     this.onSnapChange = onSnapChange;
     this.onAutofillChange = onAutofillChange;
     this.onViewChange = onViewChange;
+    this.onEditText = onEditText; // called with a text block that was double-clicked (spec 12)
+    this.lastClick = null; // { uid, time } of the last click on a piece, to spot a double-click
     this.snapLines = true;
     this.autofill = true; // straight auto-fill mode (spec 11)
     this.printView = false;
@@ -142,6 +147,7 @@ export class Canvas {
     for (const line of this.gridLines) line.setAttribute('stroke-width', 1 / scale);
     this.fineGrid.style.display = scale >= FINE_GRID_MIN_SCALE ? '' : 'none';
     this.renderGaps(); // labels keep a constant screen size
+    this.renderTextLabels();
   }
 
   // Zoom to show every placed piece and the paper (or a default area when there are none).
@@ -215,6 +221,22 @@ export class Canvas {
     }));
   }
 
+  // The size labels on text blocks (spec 12) keep a constant screen size, and show only where they fit.
+  renderTextLabels() {
+    const fontSize = TEXT_LABEL_PX / this.view.scale;
+    const pad = fontSize / 3;
+    for (const label of this.svg.querySelectorAll('.text-size')) {
+      const clip = label.parentNode;
+      const fits = label.textContent.length * 0.6 * fontSize + 2 * pad <= Number(clip.getAttribute('width'))
+        && fontSize * 1.2 + 2 * pad <= Number(clip.getAttribute('height'));
+      label.setAttribute('font-size', fontSize);
+      label.setAttribute('stroke-width', fontSize / 4); // the halo that keeps it legible over the text
+      label.setAttribute('x', pad);
+      label.setAttribute('y', pad);
+      label.style.display = fits ? '' : 'none';
+    }
+  }
+
   highlightGap(index) {
     for (const g of this.layerGaps.children) {
       g.classList.toggle('highlight', Number(g.dataset.index) === index);
@@ -244,8 +266,8 @@ export class Canvas {
     const lifted = new Set(this.drag?.kind === 'move' && this.drag.moved ? this.drag.uids : []);
     const { overlapping } = this.design.problems(); // only possible after loading a saved design
     this.layerPieces.replaceChildren(...this.design.pieces.map((p) => {
-      const type = this.design.types.get(p.type);
-      const g = pieceGraphic(type);
+      const type = this.design.typeOf(p);
+      const g = graphicFor(type);
       g.classList.add('placed');
       g.classList.toggle('selected', this.selected.has(p.uid));
       g.classList.toggle('lifted', lifted.has(p.uid));
@@ -254,6 +276,7 @@ export class Canvas {
       g.setAttribute('transform', placementTransform(type, p.x, p.y, p.rotation));
       return g;
     }));
+    this.renderTextLabels();
     // Re-report the selection so its details stay current after a move, rotate or delete.
     this.select([...this.selected].filter((uid) => this.design.get(uid)));
   }
@@ -279,7 +302,7 @@ export class Canvas {
     const d = this.drag;
     const pt = this.toLockup(client.clientX, client.clientY);
     if (d.kind === 'new') {
-      const fp = footprint(this.design.types.get(d.typeId), d.rotation);
+      const fp = footprint(this.design.typeOf({ type: d.typeId, text: d.text }), d.rotation);
       return { x: Math.round(pt.x - fp.width / 2), y: Math.round(pt.y - fp.height / 2) };
     }
     return { x: Math.round(pt.x - d.grabX), y: Math.round(pt.y - d.grabY) };
@@ -287,7 +310,9 @@ export class Canvas {
 
   // Where a drag would drop: { moves, adds } for Design.applyChanges(), plus the snap joint if any.
   newTarget(d) {
-    const candidate = { type: d.typeId, ...this.dropPosition(d.client), rotation: d.rotation };
+    const candidate = {
+      type: d.typeId, ...this.dropPosition(d.client), rotation: d.rotation, ...(d.text && { text: d.text }),
+    };
     const at = (dx, dy) => ({ ...candidate, x: candidate.x + dx, y: candidate.y + dy });
     const snap = this.snapLines
       ? findSnap(this.design, [candidate], new Set(), SNAP_RADIUS_PX / this.view.scale,
@@ -346,8 +371,8 @@ export class Canvas {
     const { moves, adds, snapPoint } = d.target;
     const ok = this.design.canApply(d.target);
     const nodes = [...moves, ...adds].map((p) => {
-      const type = this.design.types.get(p.type);
-      const g = pieceGraphic(type);
+      const type = this.design.typeOf(p);
+      const g = graphicFor(type);
       g.classList.add('ghost');
       g.classList.toggle('invalid', !ok);
       g.setAttribute('transform', placementTransform(type, p.x, p.y, p.rotation));
@@ -359,19 +384,20 @@ export class Canvas {
       }));
     }
     this.layerGhost.replaceChildren(...nodes);
+    this.renderTextLabels();
   }
 
   // --- Dragging ----------------------------------------------------------
 
-  // Called by the palette: start dragging a new piece of this type.
-  beginNewPiece(typeId, e) {
+  // Called by the palette: start dragging a new piece of this type. `text` is a text block's settings.
+  beginNewPiece(typeId, e, text = undefined) {
     if (this.drag || e.button !== 0) return;
     e.preventDefault();
     if (!this.design.hasSpare(typeId)) {
       this.onNotice(`All ${this.design.types.get(typeId).count} of this piece are already placed.`);
       return;
     }
-    this.beginDrag({ kind: 'new', typeId, rotation: 0, moved: true }, e);
+    this.beginDrag({ kind: 'new', typeId, text, rotation: 0, moved: true }, e);
   }
 
   onCanvasPointerDown(e) {
@@ -477,11 +503,11 @@ export class Canvas {
       }
     } else if (d.kind === 'new' && dropped) {
       const [c] = dropped.adds;
-      const piece = this.design.place(c.type, c.x, c.y, c.rotation);
+      const piece = this.design.place(c.type, c.x, c.y, c.rotation, c.text);
       if (piece) this.select([piece.uid]);
       else this.onNotice("Can't place it there: it would overlap another piece.");
     } else if (d.kind === 'move' && !d.moved) {
-      if (commit) this.select([d.clickUid]); // a click on a selected piece selects just that one
+      if (commit) this.clickPiece(d.clickUid);
     } else if (d.kind === 'move' && dropped) {
       if (!this.design.applyChanges(dropped)) {
         this.onNotice(dropped.run
@@ -492,6 +518,16 @@ export class Canvas {
       }
     }
     this.render(); // clears the lifted look if the pieces went back
+  }
+
+  // A click on a piece selects just that one. A second click soon after on a text block edits it.
+  clickPiece(uid) {
+    this.select([uid]);
+    const now = Date.now();
+    const double = this.lastClick?.uid === uid && now - this.lastClick.time <= DOUBLE_CLICK_MS;
+    this.lastClick = double ? null : { uid, time: now };
+    const piece = this.design.get(uid);
+    if (double && piece.type === TEXT_TYPE) this.onEditText(piece);
   }
 
   // Turns the piece or pieces being dragged 90° clockwise on screen, which in print view is
@@ -548,6 +584,7 @@ export class Canvas {
     const changes = [];
     const noMirror = new Set();
     for (const p of this.design.pieces.filter((piece) => this.selected.has(piece.uid))) {
+      if (p.type === TEXT_TYPE) continue; // type has no mirror piece; it stays as it is
       const type = this.design.types.get(p.type);
       const partner = type.mirror && this.design.types.get(type.mirror);
       const turns = partner === type ? [180, 90, 270, 0] : [0, 180, 90, 270];

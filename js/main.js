@@ -9,6 +9,8 @@ import {
 } from './storage.js';
 import { setupDesignsUI } from './designs-ui.js';
 import { setupPaperUI } from './paper-ui.js';
+import { setupTextUI } from './text-ui.js';
+import { loadTypeStyles, TEXT_TYPE, textLabel } from './text.js';
 
 const NOTICE_MS = 2500;
 const LONG_NOTICE_MS = 7000;
@@ -39,6 +41,14 @@ async function start() {
     console.error(err);
     return;
   }
+  // Text placeholders still work without the type styles; only estimating width from text needs them.
+  let styles = [];
+  try {
+    styles = await loadTypeStyles();
+  } catch (err) {
+    showError(`${err.message}\nText placeholders can't estimate a width from text until this is fixed.`);
+    console.error(err);
+  }
 
   const design = new Design(pieces);
   const rotateBtn = document.getElementById('btn-rotate');
@@ -50,8 +60,10 @@ async function start() {
   const printBtn = document.getElementById('btn-view-print');
   const nameEl = document.getElementById('design-name');
 
+  let textUI; // set up below, once the canvas exists
   const canvas = new Canvas(document.getElementById('canvas'), design, {
     onNotice: showNotice,
+    onEditText: (piece) => textUI.edit(piece),
     onSnapChange(on) {
       snapBtn.setAttribute('aria-pressed', String(on));
     },
@@ -66,14 +78,19 @@ async function start() {
       rotateBtn.disabled = deleteBtn.disabled = selected.length === 0;
       if (selected.length <= 1) {
         const [piece] = selected;
+        const what = piece?.type === TEXT_TYPE
+          ? `Text ${piece.text.content ? `"${piece.text.content}" ` : ''}(${textLabel(piece.text)}; double-click to edit)`
+          : piece && design.types.get(piece.type).name;
         selectionInfo.textContent = piece === undefined ? ''
-          : `${design.types.get(piece.type).name} at ${piece.x}, ${piece.y} pt · ${piece.rotation}°`;
+          : `${what} at ${piece.x}, ${piece.y} pt · ${piece.rotation}°`;
       } else {
         const box = boundingBox(selected.map((p) => design.rectOf(p)));
         selectionInfo.textContent = `${selected.length} pieces · ${box.width} × ${box.height} pt`;
       }
     },
   });
+
+  textUI = setupTextUI({ design, canvas, styles, listEl: document.getElementById('palette-text') });
 
   const paletteList = document.getElementById('palette-list');
   renderPalette(paletteList, pieces, (id, e) => canvas.beginNewPiece(id, e));

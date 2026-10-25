@@ -26,6 +26,11 @@
   --print-ink: #1d1b18;
   --print-outline: #6d675d;
   --print-invalid: rgba(208, 38, 26, 0.22);
+  /* Text placeholders (spec 12): a colour no ornament or gap uses, so FPO blocks never pass for metal. */
+  --fpo: rgba(150, 95, 10, 0.16);
+  --fpo-edge: #a8700f;
+  --fpo-text: #7a5208;
+  --print-fpo: rgba(29, 27, 24, 0.5);
   --panel-width: 15rem;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light dark;
@@ -57,6 +62,9 @@
     --table: #2e2b27;
     --paper-edge: #8c8475;
     --print-outline: #5a544b;
+    --fpo: rgba(230, 170, 70, 0.16);
+    --fpo-edge: #d9a24a;
+    --fpo-text: #f0c47a;
   }
 }
 
@@ -110,7 +118,7 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 }
 .palette { border-right: 1px solid var(--border); }
 .info { border-left: 1px solid var(--border); }
-.info h2:not(:first-child) { margin-top: 1.25rem; }
+.info h2:not(:first-child), .palette h2:not(:first-child) { margin-top: 1.25rem; }
 
 .palette-list, .gap-list { list-style: none; margin: 0; padding: 0; }
 
@@ -325,6 +333,59 @@ h2 { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; colo
 }
 .palette-item.problem .palette-usage { color: var(--danger); font-weight: 600; }
 .placed.overlapping .piece-body { stroke: var(--danger); stroke-width: 2px; }
+
+/* Text placeholders (spec 12): a tinted, dashed FPO box. Selection, problems and print view use the
+   .piece-body rules above, which are more specific. */
+.text-body { fill: var(--fpo); stroke: var(--fpo-edge); stroke-dasharray: 4 2; }
+.canvas .text-body { stroke: var(--fpo-edge); }
+.text-content {
+  fill: var(--fpo-text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+.text-size {
+  fill: var(--fpo-text);
+  font-variant-numeric: tabular-nums;
+  dominant-baseline: hanging;
+  paint-order: stroke;
+  stroke: var(--panel);
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+.palette-preview .text-size, .canvas.print .text-size { display: none; }
+.canvas.print .text-content { fill: var(--print-fpo); }
+
+.text-form {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+}
+.text-form [hidden] { display: none; }
+.text-form input:not([type="radio"]), .text-form select {
+  min-width: 0;
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.text-field { display: flex; align-items: center; gap: 0.3rem; }
+.text-field input { width: 6rem; }
+.text-sizing { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; }
+.text-result {
+  grid-column: 1 / -1;
+  margin: 0.25rem 0 0;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.text-result.problem { color: var(--danger); }
+.dialog-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 0.4rem; }
 
 @media (max-width: 720px) {
   .layout { grid-template-columns: 1fr; grid-template-rows: auto minmax(20rem, 1fr) auto; }

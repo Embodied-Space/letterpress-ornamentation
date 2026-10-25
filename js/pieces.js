@@ -1,6 +1,8 @@
 // Loads and validates the ornament piece types from data/pieces.json (spec 01).
 // Sizes and counts live only in the JSON; nothing here should hard-code them.
 
+import { TEXT_TYPE } from './text.js';
+
 export const EDGES = ['top', 'right', 'bottom', 'left'];
 
 const ID_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -54,6 +56,8 @@ export function validatePieces(data) {
       fail('"id" must be a kebab-case string');
     } else if (seenIds.has(piece.id)) {
       fail('"id" is used more than once');
+    } else if (piece.id === TEXT_TYPE) {
+      fail(`"id" "${TEXT_TYPE}" is kept for text placeholders`);
     } else {
       seenIds.add(piece.id);
     }

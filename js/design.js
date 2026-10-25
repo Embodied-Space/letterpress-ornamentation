@@ -1,5 +1,8 @@
 // The design state: which pieces are placed where (spec 03). No DOM code here.
 // Every change goes through canOccupy(), so an invalid layout is never stored.
+// Text placeholders (spec 12) are pieces too, of type TEXT_TYPE, with their size in `text`.
+
+import { TEXT_TYPE, textType, isValidText, textData } from './text.js';
 
 export const ROTATIONS = [0, 90, 180, 270];
 
@@ -100,13 +103,22 @@ export class Design {
     return this.pieces.find((p) => p.uid === uid) ?? null;
   }
 
-  rectOf(piece) {
-    return { x: piece.x, y: piece.y, ...footprint(this.types.get(piece.type), piece.rotation) };
+  // The piece type of a placement, or for a text block its geometry (see textType()). A placement
+  // without its own `text` (a move of a placed block) uses the placed block's.
+  typeOf(piece) {
+    if (piece.type !== TEXT_TYPE) return this.types.get(piece.type);
+    const text = piece.text ?? this.get(piece.uid)?.text;
+    return text ? textType(text) : undefined;
   }
 
-  // A known type, on whole points, at one of the four rotations.
-  isValidPlacement({ type, x, y, rotation }) {
-    return this.types.has(type) && Number.isInteger(x) && Number.isInteger(y) && ROTATIONS.includes(rotation);
+  rectOf(piece) {
+    return { x: piece.x, y: piece.y, ...footprint(this.typeOf(piece), piece.rotation) };
+  }
+
+  // A known type (or a well-formed text block), on whole points, at one of the four rotations.
+  isValidPlacement({ type, x, y, rotation, text }) {
+    const known = type === TEXT_TYPE ? isValidText(text) : this.types.has(type);
+    return known && Number.isInteger(x) && Number.isInteger(y) && ROTATIONS.includes(rotation);
   }
 
   // Can a piece ({ type, x, y, rotation }) sit here? `ignoreUid` is the piece being moved, if any.
@@ -122,20 +134,20 @@ export class Design {
     const pieces = [...uids].map((uid) => this.get(uid)).filter(Boolean);
     const box = boundingBox(pieces.map((p) => this.rectOf(p)));
     const members = pieces.map((p) => ({
-      uid: p.uid, type: p.type, rotation: p.rotation,
-      dx: p.x - box.x, dy: p.y - box.y, ...footprint(this.types.get(p.type), p.rotation),
+      uid: p.uid, type: p.type, rotation: p.rotation, ...(p.text && { text: p.text }),
+      dx: p.x - box.x, dy: p.y - box.y, ...footprint(this.typeOf(p), p.rotation),
     }));
     return { box, members };
   }
 
   // Can several pieces move and new ones be added at once? `moves` are { uid, x, y, rotation } and
-  // `adds` are { type, x, y, rotation }. Moved and added pieces may not overlap each other or any
-  // piece left where it is, and adds must stay within `count` (spec 04).
+  // `adds` are { type, x, y, rotation, text? }. Moved and added pieces may not overlap each other or any
+  // piece left where it is, and adds must stay within `count` (spec 04). Text has no count.
   canApply({ moves = [], adds = [] }) {
     if (moves.some((m) => !this.get(m.uid))) return false;
-    const candidates = [...moves.map((m) => ({ ...m, type: this.get(m.uid).type })), ...adds];
+    const candidates = [...moves.map((m) => ({ ...this.get(m.uid), ...m })), ...adds];
     if (!candidates.every((c) => this.isValidPlacement(c))) return false;
-    for (const typeId of new Set(adds.map((a) => a.type))) {
+    for (const typeId of new Set(adds.map((a) => a.type).filter((t) => t !== TEXT_TYPE))) {
       const n = adds.filter((a) => a.type === typeId).length;
       if (this.usedCount(typeId) + n > this.types.get(typeId).count) return false;
     }
@@ -154,7 +166,7 @@ export class Design {
   applyChanges({ moves = [], adds = [] }) {
     if (!this.canApply({ moves, adds })) return false;
     const moved = new Map(moves.map(({ uid, x, y, rotation }) => [uid, { x, y, rotation }]));
-    const added = adds.map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
+    const added = adds.map((a) => this.newPiece(a));
     this.commit([
       ...this.pieces.map((p) => (moved.has(p.uid) ? Object.freeze({ ...p, ...moved.get(p.uid) }) : p)),
       ...added,
@@ -166,19 +178,32 @@ export class Design {
     return this.pieces.filter((p) => p.type === typeId).length;
   }
 
-  // Hard inventory limit (spec 04): never more placed than `count` owned.
+  // Hard inventory limit (spec 04): never more placed than `count` owned. Text is unlimited.
   hasSpare(typeId) {
+    if (typeId === TEXT_TYPE) return true;
     const type = this.types.get(typeId);
     return type !== undefined && this.usedCount(typeId) < type.count;
   }
 
-  // Returns the placed piece, or null if none are left or it can't go there.
-  place(typeId, x, y, rotation = 0) {
-    const candidate = { type: typeId, x, y, rotation };
+  // A stored piece for a placement ({ type, x, y, rotation, text? }), with a new uid.
+  newPiece({ type, x, y, rotation, text }) {
+    return Object.freeze({ uid: this.nextUid++, type, x, y, rotation, ...(type === TEXT_TYPE && { text: textData(text) }) });
+  }
+
+  // Returns the placed piece, or null if none are left or it can't go there. `text` is for a text block.
+  place(typeId, x, y, rotation = 0, text = undefined) {
+    const candidate = { type: typeId, x, y, rotation, ...(text && { text }) };
     if (!this.hasSpare(typeId) || !this.canOccupy(candidate)) return null;
-    const piece = Object.freeze({ uid: this.nextUid++, ...candidate });
+    const piece = this.newPiece(candidate);
     this.commit([...this.pieces, piece]);
     return piece;
+  }
+
+  // Changes a text block's text and size in place (spec 12), keeping its top-left corner. Returns false
+  // if it isn't a text block, or the new size would overlap another piece.
+  setText(uid, text) {
+    if (this.get(uid)?.type !== TEXT_TYPE) return false;
+    return this.update(uid, { text: textData(text) });
   }
 
   // Moves a piece, optionally also setting its rotation (it can be turned while being dragged).
@@ -226,15 +251,14 @@ export class Design {
     return true;
   }
 
-  // Replaces the whole design with saved pieces ({ type, x, y, rotation }), without the overlap and
+  // Replaces the whole design with saved pieces ({ type, x, y, rotation, text? }), without the overlap and
   // inventory checks: a saved or imported design may break them, and is then shown and flagged
   // (see problems()) rather than refused. Pieces of unknown types can't be drawn; they're skipped
   // and returned.
   load(pieces, paper = null) {
-    const skipped = pieces.filter((p) => !this.types.has(p.type));
-    this.pieces = pieces
-      .filter((p) => this.types.has(p.type))
-      .map(({ type, x, y, rotation }) => Object.freeze({ uid: this.nextUid++, type, x, y, rotation }));
+    const known = (p) => p.type === TEXT_TYPE || this.types.has(p.type);
+    const skipped = pieces.filter((p) => !known(p));
+    this.pieces = pieces.filter(known).map((p) => this.newPiece(p));
     this.paper = paper === null ? null : Object.freeze({ ...paper });
     this.past = []; // a loaded design starts a fresh history (spec 15)
     this.future = [];

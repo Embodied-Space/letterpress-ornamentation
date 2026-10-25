@@ -59,7 +59,7 @@ export function mirroredRotation(fromType, rotation, toType, preferred) {
 }
 
 const piecesConnectors = (design, placements) => placements.flatMap(
-  (p) => worldConnectors(design.types.get(p.type), p.x, p.y, p.rotation),
+  (p) => worldConnectors(design.typeOf(p), p.x, p.y, p.rotation),
 );
 
 // Looks for a nearby connector on a placed piece (other than `ignoreUids`) that faces one of the
@@ -71,7 +71,7 @@ export function findSnap(design, candidates, ignoreUids, radius, isFree) {
   let best = null;
   for (const other of design.pieces) {
     if (ignoreUids.has(other.uid)) continue;
-    const theirs = worldConnectors(design.types.get(other.type), other.x, other.y, other.rotation);
+    const theirs = worldConnectors(design.typeOf(other), other.x, other.y, other.rotation);
     for (const t of theirs) {
       for (const c of mine) {
         if (c.nx !== -t.nx || c.ny !== -t.ny) continue;

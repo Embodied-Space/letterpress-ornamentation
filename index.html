@@ -37,10 +37,42 @@
     <p id="saved-empty" class="muted">No saved designs yet.</p>
   </dialog>
 
+  <dialog id="text-dialog" class="dialog" aria-labelledby="text-heading">
+    <form method="dialog" class="dialog-head">
+      <h2 id="text-heading">Text placeholder</h2>
+      <button value="close" aria-label="Close">×</button>
+    </form>
+    <form id="text-form" class="text-form" novalidate>
+      <label for="text-size">Font size</label>
+      <span class="text-field"><input id="text-size" type="number" min="0" step="any"> pt</span>
+      <span class="text-label">Size from</span>
+      <div class="text-sizing" role="radiogroup" aria-label="Size from">
+        <label><input type="radio" name="text-sizing" value="text"> Text</label>
+        <label><input type="radio" name="text-sizing" value="width"> Line width</label>
+        <label><input type="radio" name="text-sizing" value="box"> Block</label>
+      </div>
+      <label for="text-content">Text</label>
+      <input id="text-content" maxlength="200" autocomplete="off">
+      <label for="text-style" data-sizing="text">Style</label>
+      <select id="text-style" data-sizing="text"></select>
+      <label for="text-width" data-sizing="width box">Width</label>
+      <span class="text-field" data-sizing="width box"><input id="text-width" type="number" min="0" step="any"> pt</span>
+      <label for="text-height" data-sizing="box">Height</label>
+      <span class="text-field" data-sizing="box"><input id="text-height" type="number" min="0" step="any"> pt</span>
+      <p id="text-result" class="text-result" aria-live="polite"></p>
+      <div class="dialog-actions">
+        <button type="button" id="text-cancel">Cancel</button>
+        <button type="submit" id="text-ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+
   <pre id="error" class="error" role="alert" hidden></pre>
 
   <main class="layout">
     <aside class="panel palette" aria-labelledby="palette-heading">
+      <h2>Text</h2>
+      <ul id="palette-text" class="palette-list"></ul>
       <h2 id="palette-heading">Pieces</h2>
       <ul id="palette-list" class="palette-list"></ul>
     </aside>

@@ -7,6 +7,8 @@ gap that needs spacing material.
 ## Folder structure (planned)
 - `index.html`, `css/`, `js/`: the app. Plain HTML/JS (ES modules) + SVG, no build step.
 - `data/pieces.json`: ornament piece types (size in pt, line geometry, connectors, count owned).
+- `data/type-styles.json`: average character widths for estimating text placeholder widths (spec 12);
+  `data/type-styles.md` explains how to measure a font.
 - `specs/`: one small spec per concern.
 - `references/`: knowledge base of reference assets (photos, measurements, code, transcripts).
 - `README.md` (for users), `DEV.md` (setup and workflows for humans).
@@ -19,10 +21,9 @@ gap that needs spacing material.
 ## Currently building
 - v1, due the week of 2026-10-19: specs `01` to `06` in `specs/` are built. Live at https://embodied-space.github.io/letterpress-ornamentation/
 - `09` (line snapping) was split out of 07 and built early, at the user's request.
-- `10` (group select and move), `11` (straight auto-fill), `13` (lockup and print views), `14` (paper), `15`
-  (undo and redo) and `16` (swap for the mirror piece) are built.
-- `07` (connector highlighting), `08` (spacer suggestions) and `12` (text placeholders) are `idea`: don't build
-  them until they're `defined`.
+- `10` (group select and move), `11` (straight auto-fill), `12` (text placeholders), `13` (lockup and print
+  views), `14` (paper), `15` (undo and redo) and `16` (swap for the mirror piece) are built.
+- `07` (connector highlighting) and `08` (spacer suggestions) are `idea`: don't build them until they're `defined`.
 
 ## Git
 - Never commit or push. The user handles all git commits and pushes; leave changes in the working tree.
@@ -36,7 +37,8 @@ gap that needs spacing material.
 
 ## Common mistakes to avoid
 - Adding a build step, framework or npm dependency. It must deploy as plain static files.
-- Putting piece sizes or counts in code. They belong in `data/pieces.json` only.
+- Putting piece sizes or counts in code. They belong in `data/pieces.json` only. Character widths for text
+  placeholders likewise belong in `data/type-styles.json`.
 - Treating placeholder geometry (`"placeholder": true`) as real. Real measurements are still to come.
 - Allowing overlaps, or placing more pieces than `count`. Both are hard rules for editing. The one
   exception: a loaded or imported design that already breaks them is shown with the problems in red (spec 06).

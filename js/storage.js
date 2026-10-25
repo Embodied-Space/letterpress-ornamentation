@@ -2,6 +2,7 @@
 // localStorage calls can throw (private mode, quota); callers catch and show a notice.
 
 import { ROTATIONS, PAPER_UNITS } from './design.js';
+import { TEXT_TYPE, isValidText, textData } from './text.js';
 
 export const FORMAT_VERSION = 1;
 export const DEFAULT_NAME = 'Untitled';
@@ -19,12 +20,17 @@ export function serializeDesign(name, design) {
   return {
     version: FORMAT_VERSION,
     name,
-    pieces: design.pieces.map(({ type, x, y, rotation }) => ({ type, x, y, rotation })),
+    pieces: design.pieces.map(pieceData),
     ...(design.paper && { paper: paperData(design.paper) }),
   };
 }
 
 const paperData = ({ width, height, x, y, unit }) => ({ width, height, x, y, unit });
+
+// A text block (spec 12) also keeps its text and size.
+const pieceData = ({ type, x, y, rotation, text }) => ({
+  type, x, y, rotation, ...(type === TEXT_TYPE && { text: { ...textData(text) } }),
+});
 
 // Checks the shape of a design file. Rule breaks (overlaps, too many of a piece, unknown piece ids)
 // are not format errors: those designs still load, flagged (see Design.load).
@@ -41,7 +47,10 @@ export function parseDesign(data) {
       || !Number.isInteger(p.x) || !Number.isInteger(p.y) || !ROTATIONS.includes(p.rotation)) {
       fail(`Piece #${i + 1} needs a "type", whole-point "x" and "y", and a "rotation" of 0, 90, 180 or 270.`);
     }
-    return { type: p.type, x: p.x, y: p.y, rotation: p.rotation };
+    if (p.type === TEXT_TYPE && !isValidText(p.text)) {
+      fail(`Text block #${i + 1} needs "text" with "content", a font "size", a "sizing" of text, width or box, and a whole-point "width" and "height".`);
+    }
+    return pieceData(p);
   });
   // The paper is optional (spec 14): files saved before it existed have none.
   const p = data.paper;

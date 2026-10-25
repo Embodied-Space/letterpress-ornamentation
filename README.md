@@ -17,6 +17,9 @@ material.
 - Drag a piece (or a selection) straight out from the piece it's joined to, and straight rules fill the gap behind it. Toggle this with the "Auto-fill" button or `F`; rotating during the drag also turns it off for that drag
 - Undo and redo edits (`Ctrl/⌘ Z`, `Shift Ctrl/⌘ Z`). Loading, importing or clearing a design starts a fresh history
 - Pieces can't overlap, and you can't place more of a piece than you own
+- Text placeholders: click the palette's Text item to set a font size and the wording (its width is estimated),
+  a line width, or a block size; then drag it onto the canvas. Double-click a placed block to change it. The
+  text reads backwards in lockup view and correctly in print view
 - Automatic gap measurement: the empty space inside the form, split into horizontal strips and labeled in points
 - Lockup view (the form as it sits in the chase) and print view (the mirrored impression, lines only); switch with `P`
 - Set a paper size (pt, picas, inches or cm) and drag the sheet's edge to place it around the form
